@@ -1,0 +1,66 @@
+@token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTc0NTQyNTUxMywiZXhwIjoxNzQ1NDU0MzEzfQ.V_DJRh_HE9zCX47Wxx9RzNw1ockjX_GXgtirDaaS990";
+
+
+GET http://localhost:3000/api/users HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTc0NTQyNTUxMywiZXhwIjoxNzQ1NDU0MzEzfQ.V_DJRh_HE9zCX47Wxx9RzNw1ockjX_GXgtirDaaS990
+###
+
+POST http://localhost:3000/api/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInVzZXJuYW1lIjoiYWxpY2UiLCJyb2xlIjoiU3VwZXIgQWRtaW4iLCJpYXQiOjE3NDYzNjg1NTQsImV4cCI6MTc0NjM5NzM1NH0.UmIDEP1dF0Pz-nxkagTjuCQXsWbTW1VcHAOosEA9Ndc
+Content-Type: application/json
+
+{
+  "first_name": "Tedd",
+  "last_name": "Button",
+  "email": "tedd@xmail.com",
+  "username": "tedd",
+  "password": "password1",
+  "department_id": 1,
+  "designation_id": 1,
+  "role_id": 1,
+  "telephone": "01701301773",
+  "status": "Active"
+}
+###
+PATCH http://localhost:3000/api/users/5 HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTc0NTQyNTUxMywiZXhwIjoxNzQ1NDU0MzEzfQ.V_DJRh_HE9zCX47Wxx9RzNw1ockjX_GXgtirDaaS990
+Content-Type: application/json
+
+{
+  "first_name": "Eve",
+  "last_name": "Wonderland"
+  
+}   
+###
+DELETE http://localhost:3000/api/users/5 HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTc0NTQyNTUxMywiZXhwIjoxNzQ1NDU0MzEzfQ.V_DJRh_HE9zCX47Wxx9RzNw1ockjX_GXgtirDaaS990
+Content-Type: application/json
+
+{
+  "first_name": "Eve",
+  "last_name": "Wonderland"
+  
+}   
+###
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "password1"
+}
+###
+GET http://localhost:3000/api/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInVzZXJuYW1lIjoiYWxpY2UiLCJyb2xlIjoiU3VwZXIgQWRtaW4iLCJpYXQiOjE3NDYzNjg1NTQsImV4cCI6MTc0NjM5NzM1NH0.UmIDEP1dF0Pz-nxkagTjuCQXsWbTW1VcHAOosEA9Ndc
+
+###
+GET http://localhost:3000/api/appointments/5
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTc0NTU1NTUyNSwiZXhwIjoxNzQ1NTg0MzI1fQ.oQu29YJs4P1STI_OCCedfguVZJ302a-e-ZbSU7U-N7I
+Content-Type: application/json
+
+{
+  "appointmentType": "Meeting"
+
+}
+
+

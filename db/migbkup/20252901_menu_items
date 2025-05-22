@@ -1,0 +1,8 @@
+CREATE TABLE menu_items (
+  id SERIAL PRIMARY KEY,
+  label TEXT NOT NULL, -- Menu item title
+  href TEXT NOT NULL, -- URL for the menu item
+  permission TEXT NOT NULL, -- Permission required to view the menu item
+  role TEXT NOT NULL, -- Role required to view the menu item
+  "order" INT NOT NULL -- Order of the menu item
+);
