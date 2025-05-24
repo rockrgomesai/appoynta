@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClock } from "@fortawesome/free-solid-svg-icons"; // Import the clock icon
 import { toast } from "react-hot-toast"; // Import react-hot-toast
 import ClientFaceRecognitionModal from "@/components/visitors/ClientFaceRecognitionModal";
+import { formatDateTime } from '@/utils/BangladeshDateTime';
 
 interface Visitor {
   id: number;
@@ -29,6 +30,7 @@ export default function VisitorPage() {
         end_date: string;
         start_time: string;
         end_time: string;
+        note: string;
       };
       appointment_guest: {
         id: string;
@@ -45,6 +47,7 @@ export default function VisitorPage() {
     visitorId: string;
   } | null>(null);
   const [badge_id, setBadge_id] = useState("");
+  const [note, setNote] = useState(""); // Add note state
   const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
   const [allVisitors, setAllVisitors] = useState<Visitor[]>([]);
   const [isLoadingVisitors, setIsLoadingVisitors] = useState(true);
@@ -108,25 +111,28 @@ export default function VisitorPage() {
     }
 
     try {
-      // Save attendance log with badge number
+      const checkInTime = formatDateTime(new Date());
+
       await axiosInstance.post("/attendance_logs", {
         appointment_id: selectedAppointment?.appointmentId,
         visitor_id: selectedAppointment?.visitorId,
         badge_id: badge_id,
-        check_in_time: new Date().toISOString(),
+        check_in_time: checkInTime,
+        note: note,
       });
 
       // Show success toaster
       toast.success("Attendance logged successfully!");
-
+      
       // Reset state and refresh the screen
       setPhone("");
       setVisitor(null);
       setAppointments([]);
       setBadge_id("");
+      setNote("");
       setIsBadgeDialogOpen(false);
     } catch (err) {
-      // Show error toaster
+      console.error("Error submitting badge:", err);
       toast.error("Failed to log attendance. Please try again.");
     }
   };
@@ -248,8 +254,8 @@ export default function VisitorPage() {
       {/* Badge Dialog */}
       {isBadgeDialogOpen && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-1/3">
-            <h2 className="text-xl font-bold mb-4">Enter Badge Number</h2>
+          <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+            <h3 className="text-lg font-bold mb-4">Enter Badge Details</h3>
             <input
               type="text"
               value={badge_id}
@@ -257,18 +263,26 @@ export default function VisitorPage() {
               className="border rounded px-4 py-2 w-full mb-4"
               placeholder="Badge Number"
             />
-            <div className="flex justify-end">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Note (optional)"
+              className="border rounded px-4 py-2 w-full mb-4 resize-none"
+              rows={3}
+            />
+            <div className="flex justify-end space-x-2">
               <button
-                className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
                 onClick={() => {
                   setIsBadgeDialogOpen(false);
                   setBadge_id("");
+                  setNote("");
                 }}
               >
                 Cancel
               </button>
               <button
-                className="bg-blue-500 text-white px-4 py-2 rounded"
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                 onClick={handleBadgeSubmit}
               >
                 Submit

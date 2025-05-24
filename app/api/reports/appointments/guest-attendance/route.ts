@@ -29,6 +29,7 @@ export async function GET(req: Request) {
       appointment_type: appointments.appointment_type,
       appointment_topic: appointments.topic,
       check_in_time: attendance_logs.check_in_time,
+      check_out_time: attendance_logs.check_out_time,
       badge_id: attendance_logs.badge_id
       
     })
@@ -36,7 +37,8 @@ export async function GET(req: Request) {
     .innerJoin(appointment_guest, sql`${appointment_guest.appointment_id} = ${attendance_logs.appointment_id} AND ${appointment_guest.visitor_id} = ${attendance_logs.visitor_id}`)
     .innerJoin(visitors, sql`${visitors.id} = ${attendance_logs.visitor_id}`)
     .innerJoin(appointments, sql`${appointments.id} = ${attendance_logs.appointment_id}`)
-    .where(sql`${attendance_logs.check_in_time} >= ${from_date} AND ${attendance_logs.check_in_time} <= ${to_date}`)
+    .where(sql`${attendance_logs.check_in_time} >= ${from_date} 
+      AND ${attendance_logs.check_in_time} < ${to_date}::date + INTERVAL '1 day'`)
     .orderBy(sql`${attendance_logs.check_in_time} DESC`);
 
   return NextResponse.json({ data: results });

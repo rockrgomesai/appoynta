@@ -1,12 +1,24 @@
 "use client";
 import React, { useState, useRef } from "react";
 import axiosInstance from "@/lib/axios";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 function formatDisplayDate(dateStr: string) {
   if (!dateStr) return "";
-  const [yyyy, mm, dd] = dateStr.split("-");
-  if (!yyyy || !mm || !dd) return dateStr;
-  return `${dd}-${mm}-${yyyy}`;
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+function formatDateForInput(dateStr: string) {
+  if (!dateStr) return "";
+  // Ensure date is in YYYY-MM-DD format for HTML date input
+  const date = new Date(dateStr);
+  return date.toISOString().split('T')[0];
+}
+
+function parseInputDate(value: string) {
+  return value; // Keep the YYYY-MM-DD format from date picker
 }
 
 export default function AppointmentsReportPage() {
@@ -82,30 +94,30 @@ export default function AppointmentsReportPage() {
       <div className="flex items-center justify-between bg-white shadow rounded px-4 py-2 mb-6 w-full max-w-3xl mx-auto border border-gray-200">
         <div className="flex items-center space-x-4">
           <div>
-            <label htmlFor="from-date" className="block text-xs font-medium text-gray-600 mb-1">From Date</label>
-            <input
+            <label htmlFor="from-date" className="block text-xs font-medium text-gray-600 mb-1">
+              From Date ({formatDisplayDate(fromDate)})
+            </label>
+            <DatePicker
               id="from-date"
-              type="date"
-              className="border rounded px-2 py-1 text-sm"
-              value={fromDate}
-              onChange={e => setFromDate(e.target.value)}
+              selected={fromDate ? new Date(fromDate) : null}
+              onChange={date => setFromDate(date ? parseInputDate(date.toISOString().split('T')[0]) : "")}
+              dateFormat="dd/MM/yyyy"
+              className="border rounded px-2 py-1 text-sm [&::-webkit-datetime-edit]: text-right"
+              placeholderText="Select date"
             />
-            {fromDate && (
-              <div className="text-xs text-gray-500 mt-1">{formatDisplayDate(fromDate)}</div>
-            )}
           </div>
           <div>
-            <label htmlFor="to-date" className="block text-xs font-medium text-gray-600 mb-1">To Date</label>
-            <input
+            <label htmlFor="to-date" className="block text-xs font-medium text-gray-600 mb-1">
+              To Date ({formatDisplayDate(toDate)})
+            </label>
+            <DatePicker
               id="to-date"
-              type="date"
-              className="border rounded px-2 py-1 text-sm"
-              value={toDate}
-              onChange={e => setToDate(e.target.value)}
+              selected={toDate ? new Date(toDate) : null}
+              onChange={date => setToDate(date ? parseInputDate(date.toISOString().split('T')[0]) : "")}  
+              dateFormat="dd/MM/yyyy"
+              className="border rounded px-2 py-1 text-sm [&::-webkit-datetime-edit]: text-right"
+            placeholderText="Select date"
             />
-            {toDate && (
-              <div className="text-xs text-gray-500 mt-1">{formatDisplayDate(toDate)}</div>
-            )}
           </div>
         </div>
         <button
