@@ -23,7 +23,9 @@ export async function GET() {
         href: menuItems.href,
         permission: menuItems.permission,
         order: menuItems.order,
-        menuicon: menuItems.menuicon
+        menuicon: menuItems.menuicon,
+        parent_id: menuItems.parent_id,
+        is_submenu: menuItems.is_submenu,
       })
       .from(menuItems)
       .orderBy(menuItems.order);

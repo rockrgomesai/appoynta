@@ -1,7 +1,7 @@
 // db/schema.ts
 import { pgEnum, pgTable, serial, varchar, integer, text, timestamp, date, time, boolean, jsonb, primaryKey, uniqueIndex, check } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-
+import type { MenuItem } from '@/types/MenuItem';
 // Enums
 export const userStatus = pgEnum('user_status', ['Active', 'Inactive']);
 export const appointmentStatus = pgEnum('appointment_status', ['Active', 'Inactive']);
@@ -141,13 +141,24 @@ export const refreshTokens = pgTable('refresh_tokens', {
   expiresAt: timestamp('expires_at').notNull(),
 });
 
-export const menuItems = pgTable("menu_items", {
+
+
+// Forward declaration for self-reference
+let _menuItems: any;
+
+export const menuItems = _menuItems = pgTable("menu_items", {
   id: serial("id").primaryKey(),
   label: text("label").notNull(),
-  href: text("href").notNull(),
+  href: text("href"),
   permission: text("permission").notNull(),
   order: integer("order").notNull(),
   menuicon: text("menuicon"),
+  // Add parent_id for hierarchical structure
+  parent_id: integer("parent_id").references(() => _menuItems.id, { 
+    onDelete: "cascade" 
+  }),
+  // Add is_submenu flag
+  is_submenu: boolean("is_submenu").default(false).notNull(),
 });
 
 // Junction Table: Menu Item Roles
