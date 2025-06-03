@@ -43,7 +43,7 @@ export async function PATCH(
     whatsapp: z.enum(["Yes", "No"]).default("No").optional(),
     gender: z.enum(["Male", "Female", "Other"]).optional(),
     company: z.string().optional(),
-    nid: z.union([z.string().max(255), z.literal(""), z.null()]).optional(), // allow empty/null
+    nid:      z.union([z.string().max(255), z.literal(''), z.null()]).optional(), // allow empty/null
     image_pp: z.string().optional(),
     note: z.string().optional(),
     status: z.enum(["Active", "Inactive"]).default("Active").optional(),
@@ -54,10 +54,16 @@ export async function PATCH(
   // Parse and validate the request body
   const parsed = updateVisitorSchema.parse(await req.json());
 
+  // After parsing:
+  if ("nid" in parsed) {
+    if (parsed.nid === "" || parsed.nid === null) {
+      parsed.nid = null;
+    }
+  }
   // Filter out null or undefined values
   const filteredParsed = Object.fromEntries(
     Object.entries(parsed).filter(
-      ([_, value]) => value !== null && value !== undefined
+      ([_, value]) => value !== undefined
     )
   );
 

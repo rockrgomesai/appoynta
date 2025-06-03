@@ -25,10 +25,6 @@ import VisitorViewModal from "@/components/visitors/VisitorViewModal";
 
 import ClientFaceCapture from '@/components/visitors/ClientFaceCapture';
 
-// Import face-api.js for face detection
-import * as faceapi from '@vladmandic/face-api';
-
-
 function VisitorPage() {
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
@@ -45,12 +41,20 @@ function VisitorPage() {
   const [isWebcamOpen, setIsWebcamOpen] = useState(false);
   const [activeVisitor, setActiveVisitor] = useState<Visitor | null>(null);
   const [isFaceCaptureOpen, setIsFaceCaptureOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   // Fetch visitors
   const fetchVisitors = async () => {
     try {
       const response = await axiosInstance.get("/visitors", {
-        params: { page: currentPage, pageSize, search: searchTerm, orderBy: "id", order: "desc" },
+        params: {
+          page: currentPage,
+          pageSize,
+          search: searchTerm,
+          sortColumn: sortColumn || "id",
+          sortOrder: sortOrder || "desc",
+        },
       });
       setVisitors(response.data.data);
       setTotalItems(response.data.total);
@@ -62,7 +66,7 @@ function VisitorPage() {
 
   useEffect(() => {
     fetchVisitors();
-  }, [currentPage, pageSize, searchTerm]);
+  }, [currentPage, pageSize, searchTerm, sortColumn, sortOrder]);
 
   // Handle Add Visitor
   const handleAddVisitor = async (visitorData: Omit<Visitor, "id">) => {
@@ -164,6 +168,9 @@ function VisitorPage() {
     }
 
     try {
+      // Dynamically import face-api.js in the browser
+      const faceapi = await import('@vladmandic/face-api');
+
       // First, save the image file
       const imageFormData = new FormData();
       imageFormData.append('file', blob, `visitor_${activeVisitor.id}_${Date.now()}.jpg`);
@@ -228,6 +235,16 @@ function VisitorPage() {
     }
   };
 
+  // Sorting handler
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortOrder("asc");
+    }
+  };
+
   return (
     <div>
       {/* Header Row */}
@@ -264,8 +281,10 @@ function VisitorPage() {
           setIsEditFormOpen(true);
         }}
         onDelete={handleDeleteVisitor}
-        onFaceClick={handleFaceClick}
         onCameraClick={handleCameraClick}
+        sortColumn={sortColumn}
+        sortOrder={sortOrder}
+        onSort={handleSort}
       />
 
       {/* Pagination */}

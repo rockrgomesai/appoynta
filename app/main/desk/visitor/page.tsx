@@ -57,7 +57,7 @@ export default function VisitorPage() {
       setIsLoadingVisitors(true);
       try {
         const response = await axiosInstance.get("/visitors/with-face-descriptors");
-        console.log("Raw response:", response.data); // Debug log
+        //console.log("Raw response:", response.data); // Debug log
         
         // Handle both single visitor and array responses
         const visitorsArray = Array.isArray(response.data.visitors) 
@@ -73,8 +73,9 @@ export default function VisitorPage() {
             v.face_descriptors.length === 128
         );
 
-        console.log("Valid visitors:", validVisitors); // Debug log
+        //console.log("Valid visitors:", validVisitors); // Debug log
         setAllVisitors(validVisitors);
+
       } catch (error) {
         console.error("Error fetching visitors:", error);
         toast.error("Failed to load visitor data");
@@ -138,10 +139,20 @@ export default function VisitorPage() {
   };
 
   // Add this handler
-  const handleFaceRecognitionMatch = (matchedVisitor: any) => {
+  const handleFaceRecognitionMatch = async (matchedVisitor: any) => {
     setVisitor(matchedVisitor);
     setIsFaceModalOpen(false);
     toast.success(`Matched: ${matchedVisitor.name}`);
+
+    // Fetch appointments for the matched visitor
+    try {
+      // Use phone or another unique identifier
+      const response = await axiosInstance.get(`/desk/visitor?phone=${matchedVisitor.phone}`);
+      setAppointments(response.data.appointments);
+    } catch (err) {
+      setAppointments([]);
+      toast.error("Failed to fetch appointments for this visitor.");
+    }
   };
 
   return (

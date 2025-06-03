@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import axiosInstance from "@/lib/axios";
-import { User } from "@/types/User"; // Import the User type
+import { User } from "@/types/User";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faRemove, faEye, faAngleDoubleLeft, faAngleLeft, faAngleRight, faAngleDoubleRight } from "@fortawesome/free-solid-svg-icons";
 
@@ -20,6 +20,7 @@ export default function UsersPage() {
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+  const [optionsLoading, setOptionsLoading] = useState(false); // Add loading state
 
   // Fetch users
   const fetchUsers = async () => {
@@ -36,8 +37,9 @@ export default function UsersPage() {
 
   // Fetch active departments, designations, and roles
   const fetchOptions = async () => {
+    setOptionsLoading(true); // Set loading to true
     try {
-      console.log("Fetching options..."); // Debugging log
+      console.log("Fetching options...");
       const [departmentsResponse, designationsResponse, rolesResponse] = await Promise.all([
         axiosInstance.get("/departments", { params: { state: "Active" } }),
         axiosInstance.get("/designations", { params: { state: "Active" } }),
@@ -46,11 +48,13 @@ export default function UsersPage() {
       setDepartments(departmentsResponse.data.data);
       setDesignations(designationsResponse.data.data);
       setRoles(rolesResponse.data.data);
-      console.log("Departments:", departmentsResponse.data.data); // Debugging log
-      console.log("Designations:", designationsResponse.data.data); // Debugging log
-      console.log("Roles:", rolesResponse.data.data); // Debugging log
+      console.log("Departments:", departmentsResponse.data.data);
+      console.log("Designations:", designationsResponse.data.data);
+      console.log("Roles:", rolesResponse.data.data);
     } catch (error) {
       console.error("Failed to fetch options:", error);
+    } finally {
+      setOptionsLoading(false); // Set loading to false
     }
   };
 
@@ -245,15 +249,12 @@ export default function UsersPage() {
       {/* Add User Form */}
       {isAddFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
             className="absolute inset-0 bg-gray-500/50"
             onClick={() => setIsAddFormOpen(false)}
           ></div>
 
-          {/* Modal Content */}
           <div className="relative bg-white p-8 rounded shadow-lg w-3/4 z-10">
-            {/* Close Button */}
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsAddFormOpen(false)}
@@ -262,179 +263,182 @@ export default function UsersPage() {
             </button>
 
             <h2 className="text-2xl font-bold mb-6">Add User</h2>
-            <form
-              autoComplete="off"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setFormErrors({});
-                const form = e.target as HTMLFormElement;
-                const formData = new FormData(form);
-                const userData = Object.fromEntries(formData.entries());
-                // Phone validation
-                if (!userData.telephone || (userData.telephone as string).length < 11) {
-                  setFormErrors({ telephone: 'Phone number must be at least 11 characters.' });
-                  return;
-                }
-                handleAddUser({
-                  first_name: userData.first_name as string,
-                  last_name: userData.last_name as string,
-                  username: userData.username as string,
-                  password: userData.password as string,
-                  email: userData.email as string,
-                  telephone: userData.telephone as string,
-                  department_id: parseInt(userData.department_id as string, 10),
-                  designation_id: parseInt(userData.designation_id as string, 10),
-                  role_id: parseInt(userData.role_id as string, 10),
-                  status: userData.status as "Active" | "Inactive",
-                });
-              }}
-            >
-              <div className="grid grid-cols-3 gap-6">
-                <div className="mb-4">
-                  <label className="block mb-2">First Name</label>
-                  <input
-                    type="text"
-                    name="first_name"
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Enter the user's first name"
-                    placeholder="Enter first name"
-                  />
+            {optionsLoading ? (
+              <div className="text-center py-8">Loading options...</div>
+            ) : (
+              <form
+                autoComplete="off"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setFormErrors({});
+                  const form = e.target as HTMLFormElement;
+                  const formData = new FormData(form);
+                  const userData = Object.fromEntries(formData.entries());
+                  if (!userData.telephone || (userData.telephone as string).length < 11) {
+                    setFormErrors({ telephone: 'Phone number must be at least 11 characters.' });
+                    return;
+                  }
+                  handleAddUser({
+                    first_name: userData.first_name as string,
+                    last_name: userData.last_name as string,
+                    username: userData.username as string,
+                    password: userData.password as string,
+                    email: userData.email as string,
+                    telephone: userData.telephone as string,
+                    department_id: parseInt(userData.department_id as string, 10),
+                    designation_id: parseInt(userData.designation_id as string, 10),
+                    role_id: parseInt(userData.role_id as string, 10),
+                    status: userData.status as "Active" | "Inactive",
+                  });
+                }}
+              >
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="mb-4">
+                    <label className="block mb-2">First Name</label>
+                    <input
+                      type="text"
+                      name="first_name"
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Enter the user's first name"
+                      placeholder="Enter first name"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      name="last_name"
+                      className="border rounded px-4 py-2 w-full"
+                      title="Enter the user's last name"
+                      placeholder="Enter last name"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Username</label>
+                    <input
+                      type="text"
+                      name="username"
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      autoComplete="username"
+                      title="Enter a unique username for the user"
+                      placeholder="Enter username"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Password</label>
+                    <input
+                      type="password"
+                      name="password"
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      autoComplete="new-password"
+                      title="Enter a secure password for the user"
+                      placeholder="Enter password"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      className="border rounded px-4 py-2 w-full"
+                      title="Enter the user's email address"
+                      placeholder="Enter email"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Telephone</label>
+                    <input
+                      type="text"
+                      name="telephone"
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Enter the user's telephone number"
+                      placeholder="Enter telephone"
+                    />
+                    {formErrors.telephone && (
+                      <div className="text-red-600 text-sm mt-1">{formErrors.telephone}</div>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Department</label>
+                    <select
+                      name="department_id"
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Select the user's department"
+                    >
+                      <option value="">Select a Department</option>
+                      {departments.map((department) => (
+                        <option key={department.id} value={department.id}>
+                          {department.department}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Designation</label>
+                    <select
+                      name="designation_id"
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Select the user's designation"
+                    >
+                      <option value="">Select a Designation</option>
+                      {designations.map((designation) => (
+                        <option key={designation.id} value={designation.id}>
+                          {designation.designation}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Role</label>
+                    <select
+                      name="role_id"
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Select the user's role"
+                    >
+                      <option value="">Select a Role</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Status</label>
+                    <select
+                      name="status"
+                      className="border rounded px-4 py-2 w-full"
+                      defaultValue="Active"
+                      title="Select the user's status"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Last Name</label>
-                  <input
-                    type="text"
-                    name="last_name"
-                    className="border rounded px-4 py-2 w-full"
-                    title="Enter the user's last name"
-                    placeholder="Enter last name"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Username</label>
-                  <input
-                    type="text"
-                    name="username"
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    autoComplete="username"
-                    title="Enter a unique username for the user"
-                    placeholder="Enter username"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Password</label>
-                  <input
-                    type="password"
-                    name="password"
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    autoComplete="new-password"
-                    title="Enter a secure password for the user"
-                    placeholder="Enter password"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    className="border rounded px-4 py-2 w-full"
-                    title="Enter the user's email address"
-                    placeholder="Enter email"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Telephone</label>
-                  <input
-                    type="text"
-                    name="telephone"
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Enter the user's telephone number"
-                    placeholder="Enter telephone"
-                  />
-                  {formErrors.telephone && (
-                    <div className="text-red-600 text-sm mt-1">{formErrors.telephone}</div>
-                  )}
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Department</label>
-                  <select
-                    name="department_id"
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Select the user's department"
+                <div className="flex justify-end">
+                  <button
+                    type="reset"
+                    className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
                   >
-                    <option value="">Select a Department</option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.department}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Designation</label>
-                  <select
-                    name="designation_id"
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Select the user's designation"
+                    Reset
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-blue-500 text-white px-4 py-2 rounded"
                   >
-                    <option value="">Select a Designation</option>
-                    {designations.map((designation) => (
-                      <option key={designation.id} value={designation.id}>
-                        {designation.designation}
-                      </option>
-                    ))}
-                  </select>
+                    Save
+                  </button>
                 </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Role</label>
-                  <select
-                    name="role_id"
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Select the user's role"
-                  >
-                    <option value="">Select a Role</option>
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Status</label>
-                  <select
-                    name="status"
-                    className="border rounded px-4 py-2 w-full"
-                    defaultValue="Active"
-                    title="Select the user's status"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="reset"
-                  className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
-                >
-                  Reset
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-500 text-white px-4 py-2 rounded"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -442,15 +446,12 @@ export default function UsersPage() {
       {/* Edit User Form */}
       {isEditFormOpen && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
             className="absolute inset-0 bg-gray-500/50"
             onClick={() => setIsEditFormOpen(false)}
           ></div>
 
-          {/* Modal Content */}
           <div className="relative bg-white p-8 rounded shadow-lg w-3/4 z-10">
-            {/* Close Button */}
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsEditFormOpen(false)}
@@ -459,173 +460,177 @@ export default function UsersPage() {
             </button>
 
             <h2 className="text-2xl font-bold mb-6">Edit User</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setFormErrors({});
-                const form = e.target as HTMLFormElement;
-                const formData = new FormData(form);
-                const userData = Object.fromEntries(formData.entries());
-                if (!userData.telephone || (userData.telephone as string).length < 11) {
-                  setFormErrors({ telephone: 'Phone number must be at least 11 characters.' });
-                  return;
-                }
-                handleEditUser({
-                  id: selectedUser.id,
-                  first_name: userData.first_name as string,
-                  last_name: userData.last_name as string,
-                  username: userData.username as string,
-                  email: userData.email as string,
-                  telephone: userData.telephone as string,
-                  department_id: parseInt(userData.department_id as string, 10),
-                  designation_id: parseInt(userData.designation_id as string, 10),
-                  role_id: parseInt(userData.role_id as string, 10),
-                  status: userData.status as "Active" | "Inactive",
-                });
-              }}
-            >
-              <div className="grid grid-cols-3 gap-6">
-                <div className="mb-4">
-                  <label className="block mb-2">First Name</label>
-                  <input
-                    type="text"
-                    name="first_name"
-                    defaultValue={selectedUser.first_name}
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Enter the user's first name"
-                    placeholder="Enter first name"
-                  />
+            {optionsLoading ? (
+              <div className="text-center py-8">Loading options...</div>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setFormErrors({});
+                  const form = e.target as HTMLFormElement;
+                  const formData = new FormData(form);
+                  const userData = Object.fromEntries(formData.entries());
+                  if (!userData.telephone || (userData.telephone as string).length < 11) {
+                    setFormErrors({ telephone: 'Phone number must be at least 11 characters.' });
+                    return;
+                  }
+                  handleEditUser({
+                    id: selectedUser.id,
+                    first_name: userData.first_name as string,
+                    last_name: userData.last_name as string,
+                    username: userData.username as string,
+                    email: userData.email as string,
+                    telephone: userData.telephone as string,
+                    department_id: parseInt(userData.department_id as string, 10),
+                    designation_id: parseInt(userData.designation_id as string, 10),
+                    role_id: parseInt(userData.role_id as string, 10),
+                    status: userData.status as "Active" | "Inactive",
+                  });
+                }}
+              >
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="mb-4">
+                    <label className="block mb-2">First Name</label>
+                    <input
+                      type="text"
+                      name="first_name"
+                      defaultValue={selectedUser.first_name}
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Enter the user's first name"
+                      placeholder="Enter first name"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      name="last_name"
+                      defaultValue={selectedUser.last_name || ""}
+                      className="border rounded px-4 py-2 w-full"
+                      title="Enter the user's last name"
+                      placeholder="Enter last name"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Username</label>
+                    <input
+                      type="text"
+                      name="username"
+                      defaultValue={selectedUser.username}
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      autoComplete="username"
+                      title="Enter a unique username for the user"
+                      placeholder="Enter username"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      defaultValue={selectedUser.email || ""}
+                      className="border rounded px-4 py-2 w-full"
+                      title="Enter the user's email address"
+                      placeholder="Enter email"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Telephone</label>
+                    <input
+                      type="text"
+                      name="telephone"
+                      defaultValue={selectedUser.telephone}
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Enter the user's telephone number"
+                      placeholder="Enter telephone"
+                    />
+                    {formErrors.telephone && (
+                      <div className="text-red-600 text-sm mt-1">{formErrors.telephone}</div>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Department</label>
+                    <select
+                      name="department_id"
+                      defaultValue={selectedUser.department_id || ""}
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Select the user's department"
+                    >
+                      <option value="">Select a Department</option>
+                      {departments.map((department) => (
+                        <option key={department.id} value={department.id}>
+                          {department.department}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Designation</label>
+                    <select
+                      name="designation_id"
+                      defaultValue={selectedUser.designation_id || ""}
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Select the user's designation"
+                    >
+                      <option value="">Select a Designation</option>
+                      {designations.map((designation) => (
+                        <option key={designation.id} value={designation.id}>
+                          {designation.designation}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Role</label>
+                    <select
+                      name="role_id"
+                      defaultValue={selectedUser.role_id || ""}
+                      className="border rounded px-4 py-2 w-full"
+                      required
+                      title="Select the user's role"
+                    >
+                      <option value="">Select a Role</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-2">Status</label>
+                    <select
+                      name="status"
+                      defaultValue={selectedUser.status || "Active"}
+                      className="border rounded px-4 py-2 w-full"
+                      title="Select the user's status"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Last Name</label>
-                  <input
-                    type="text"
-                    name="last_name"
-                    defaultValue={selectedUser.last_name || ""}
-                    className="border rounded px-4 py-2 w-full"
-                    title="Enter the user's last name"
-                    placeholder="Enter last name"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Username</label>
-                  <input
-                    type="text"
-                    name="username"
-                    defaultValue={selectedUser.username}
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    autoComplete="username"
-                    title="Enter a unique username for the user"
-                    placeholder="Enter username"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    defaultValue={selectedUser.email || ""}
-                    className="border rounded px-4 py-2 w-full"
-                    title="Enter the user's email address"
-                    placeholder="Enter email"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Telephone</label>
-                  <input
-                    type="text"
-                    name="telephone"
-                    defaultValue={selectedUser.telephone}
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Enter the user's telephone number"
-                    placeholder="Enter telephone"
-                  />
-                  {formErrors.telephone && (
-                    <div className="text-red-600 text-sm mt-1">{formErrors.telephone}</div>
-                  )}
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Department</label>
-                  <select
-                    name="department_id"
-                    defaultValue={selectedUser.department_id || ""}
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Select the user's department"
+                <div className="flex justify-end">
+                  <button
+                    type="reset"
+                    className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
                   >
-                    <option value="">Select a Department</option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.department}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Designation</label>
-                  <select
-                    name="designation_id"
-                    defaultValue={selectedUser.designation_id || ""}
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Select the user's designation"
+                    Reset
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-blue-500 text-white px-4 py-2 rounded"
                   >
-                    <option value="">Select a Designation</option>
-                    {designations.map((designation) => (
-                      <option key={designation.id} value={designation.id}>
-                        {designation.designation}
-                      </option>
-                    ))}
-                  </select>
+                    Save
+                  </button>
                 </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Role</label>
-                  <select
-                    name="role_id"
-                    defaultValue={selectedUser.role_id || ""}
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Select the user's role"
-                  >
-                    <option value="">Select a Role</option>
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Status</label>
-                  <select
-                    name="status"
-                    defaultValue={selectedUser.status || "Active"}
-                    className="border rounded px-4 py-2 w-full"
-                    title="Select the user's status"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="reset"
-                  className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
-                >
-                  Reset
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-500 text-white px-4 py-2 rounded"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
       )}

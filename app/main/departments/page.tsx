@@ -2,10 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 import axiosInstance from "@/lib/axios";
-import { Department } from "@/types/Department"; // Import the Department type
+import { Department } from "@/types/Department";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faRemove, faEye, faAngleDoubleLeft, faAngleLeft, faAngleRight, faAngleDoubleRight } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-hot-toast";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { line } from "drizzle-orm/pg-core";
+
+// Zod schema based on your DB schema
+const departmentSchema = z.object({
+  department: z.string().min(2, "Department name is required"),
+  status: z.enum(["Active", "Inactive"], { required_error: "Status is required" }),
+});
+
+type DepartmentForm = z.infer<typeof departmentSchema>;
 
 export default function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -35,63 +47,72 @@ export default function DepartmentPage() {
     fetchDepartments();
   }, [currentPage, pageSize, searchTerm]);
 
+  // Add Department Form
+  const {
+    register: registerAdd,
+    handleSubmit: handleSubmitAdd,
+    reset: resetAdd,
+    formState: { errors: errorsAdd, isSubmitting: isSubmittingAdd },
+  } = useForm<DepartmentForm>({
+    resolver: zodResolver(departmentSchema),
+    defaultValues: { department: "", status: "Active" },
+  });
+
+  // Edit Department Form
+  const {
+    register: registerEdit,
+    handleSubmit: handleSubmitEdit,
+    reset: resetEdit,
+    formState: { errors: errorsEdit, isSubmitting: isSubmittingEdit },
+    setValue: setEditValue,
+  } = useForm<DepartmentForm>({
+    resolver: zodResolver(departmentSchema),
+    defaultValues: { department: "", status: "Active" },
+  });
+
+  // Open Add Form
+  const openAddForm = () => {
+    resetAdd({ department: "", status: "Active" });
+    setIsAddFormOpen(true);
+  };
+
+  // Open Edit Form
+  const openEditForm = (department: Department) => {
+    setSelectedDepartment(department);
+    resetEdit({
+      department: department.department,
+      status: department.status as "Active" | "Inactive",
+    });
+    setIsEditFormOpen(true);
+  };
+
   // Handle Add Department
-  const handleAddDepartment = async (departmentData: Omit<Department, "id">) => {
+  const onAddDepartment = async (data: DepartmentForm) => {
     try {
-      const response = await axiosInstance.post("/departments", departmentData);
+      const response = await axiosInstance.post("/departments", data);
       setDepartments((prev) => [...prev, response.data]);
       setIsAddFormOpen(false);
       toast.success("Department added successfully!");
+      fetchDepartments();
     } catch (error: any) {
-      const status = error?.response?.status;
-      const code = error?.response?.data?.code;
-      const detail = error?.response?.data?.detail;
-      const message = error?.response?.data?.message;
-      const errorText = error?.response?.data?.error;
-      if (status === 409) {
-        toast.error("Department with this name already exists");
-      } else if (code && detail) {
-        toast.error(`Error ${code}: ${detail}`);
-      } else if (detail) {
-        toast.error(detail);
-      } else if (message) {
-        toast.error(message);
-      } else if (errorText) {
-        toast.error(errorText);
-      } else if (error?.message) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to add department.");
-      }
-      console.error("Failed to add department:", error);
+      toast.error(error?.response?.data?.message || "Failed to add department.");
     }
   };
 
   // Handle Edit Department
-  const handleEditDepartment = async (departmentData: Department) => {
+  const onEditDepartment = async (data: DepartmentForm) => {
     try {
-      const response = await axiosInstance.patch(`/departments/${departmentData.id}`, departmentData);
+      if (!selectedDepartment) return;
+      const response = await axiosInstance.patch(`/departments/${selectedDepartment.id}`, data);
       setDepartments((prev) =>
         prev.map((dept) => (dept.id === response.data.id ? response.data : dept))
       );
       setIsEditFormOpen(false);
+      setSelectedDepartment(null);
       toast.success("Department updated successfully!");
+      fetchDepartments();
     } catch (error: any) {
-      const code = error?.response?.data?.code;
-      const detail = error?.response?.data?.detail;
-      const message = error?.response?.data?.message;
-      if (code && detail) {
-        toast.error(`Error ${code}: ${detail}`);
-      } else if (detail) {
-        toast.error(detail);
-      } else if (message) {
-        toast.error(message);
-      } else if (error?.message) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to update department.");
-      }
-      console.error("Failed to edit department:", error);
+      toast.error(error?.response?.data?.message || "Failed to update department.");
     }
   };
 
@@ -101,8 +122,10 @@ export default function DepartmentPage() {
       try {
         await axiosInstance.delete(`/departments/${id}`);
         setDepartments((prev) => prev.filter((dept) => dept.id !== id));
+        toast.success("Department deleted.");
+        fetchDepartments();
       } catch (error) {
-        console.error("Failed to delete department:", error);
+        toast.error("Failed to delete department.");
       }
     }
   };
@@ -125,7 +148,7 @@ export default function DepartmentPage() {
           />
           <button
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
-            onClick={() => setIsAddFormOpen(true)}
+            onClick={openAddForm}
           >
             + Add
           </button>
@@ -162,10 +185,7 @@ export default function DepartmentPage() {
                   </button>
                   <button
                     className="text-green-500 hover:underline mr-2"
-                    onClick={() => {
-                      setSelectedDepartment(department);
-                      setIsEditFormOpen(true);
-                    }}
+                    onClick={() => openEditForm(department)}
                   >
                     <FontAwesomeIcon icon={faEdit} className="text-green-500 w-5 h-5" />
                   </button>
@@ -190,7 +210,6 @@ export default function DepartmentPage() {
 
       {/* Pagination */}
       <div className="flex justify-between items-center mt-4">
-        {/* First and Previous Buttons */}
         <div>
           <button
             className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-md"
@@ -207,8 +226,6 @@ export default function DepartmentPage() {
             <FontAwesomeIcon icon={faAngleLeft} className="text-blue-900 w-6 h-6" />
           </button>
         </div>
-
-        {/* Page Display */}
         <div className="text-gray-700 flex items-center space-x-2">
           <span>
             Page {currentPage} of {Math.ceil(totalItems / pageSize)}
@@ -218,7 +235,10 @@ export default function DepartmentPage() {
             id="page-size-select"
             className="border rounded px-4 py-2 shadow-md"
             value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
             title="Page Size"
           >
             <option value={10}>10</option>
@@ -227,8 +247,6 @@ export default function DepartmentPage() {
             <option value={100}>100</option>
           </select>
         </div>
-
-        {/* Next and Last Buttons */}
         <div>
           <button
             className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-md"
@@ -250,68 +268,59 @@ export default function DepartmentPage() {
       {/* Add Department Form */}
       {isAddFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
             className="absolute inset-0 bg-gray-500/50"
-            onClick={() => setIsAddFormOpen(false)} // Close the modal when clicking outside
+            onClick={() => setIsAddFormOpen(false)}
           ></div>
-
-          {/* Modal Content */}
           <div className="relative bg-teal-50 p-8 rounded shadow-lg w-1/2 z-10">
-            {/* Close Button */}
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsAddFormOpen(false)}
             >
               ✕
             </button>
-
             <h2 className="text-2xl font-bold mb-6">Add Department</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const formData = new FormData(form);
-                const departmentData = Object.fromEntries(formData.entries());
-                handleAddDepartment({
-                  department: departmentData.department as string,
-                  status: departmentData.status as "Active" | "Inactive",
-                });
-              }}
-            >
+            <form onSubmit={handleSubmitAdd(onAddDepartment)}>
               <div className="mb-4">
                 <label className="block mb-2">Department Name</label>
                 <input
                   type="text"
-                  name="department"
-                  className="border rounded px-4 py-2 w-full"
+                  {...registerAdd("department")}
+                  className={`border rounded px-4 py-2 w-full ${errorsAdd.department ? "border-red-500" : ""}`}
                   required
                   placeholder="Enter department name"
                   title="Department Name"
                 />
+                {errorsAdd.department && (
+                  <p className="text-red-600 text-sm mt-1">{errorsAdd.department.message}</p>
+                )}
               </div>
               <div className="mb-4">
                 <label className="block mb-2">Status</label>
                 <select
-                  name="status"
-                  className="border rounded px-4 py-2 w-full"
-                  defaultValue="Active"
+                  {...registerAdd("status")}
+                  className={`border rounded px-4 py-2 w-full ${errorsAdd.status ? "border-red-500" : ""}`}
                   title="Department Status"
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
+                {errorsAdd.status && (
+                  <p className="text-red-600 text-sm mt-1">{errorsAdd.status.message}</p>
+                )}
               </div>
               <div className="flex justify-end">
                 <button
                   type="reset"
                   className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                  onClick={() => resetAdd({ department: "", status: "Active" })}
                 >
                   Reset
                 </button>
                 <button
                   type="submit"
                   className="bg-blue-500 text-white px-4 py-2 rounded"
+                  disabled={isSubmittingAdd}
                 >
                   Save
                 </button>
@@ -324,59 +333,46 @@ export default function DepartmentPage() {
       {/* Edit Department Form */}
       {isEditFormOpen && selectedDepartment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
             className="absolute inset-0  bg-gray-500/50"
             onClick={() => setIsEditFormOpen(false)}
           ></div>
-
-          {/* Modal Content */}
           <div className="relative bg-white p-8 rounded shadow-lg w-1/2 z-10">
-            {/* Close Button */}
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsEditFormOpen(false)}
             >
               ✕
             </button>
-
             <h2 className="text-2xl font-bold mb-6">Edit Department</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const formData = new FormData(form);
-                const departmentData = Object.fromEntries(formData.entries());
-                handleEditDepartment({
-                  id: selectedDepartment.id,
-                  department: departmentData.department as string,
-                  status: departmentData.status as "Active" | "Inactive",
-                });
-              }}
-            >
+            <form onSubmit={handleSubmitEdit(onEditDepartment)}>
               <div className="mb-4">
                 <label className="block mb-2">Department Name</label>
                 <input
                   type="text"
-                  name="department"
-                  defaultValue={selectedDepartment.department}
-                  className="border rounded px-4 py-2 w-full"
+                  {...registerEdit("department")}
+                  className={`border rounded px-4 py-2 w-full ${errorsEdit.department ? "border-red-500" : ""}`}
                   required
                   placeholder="Enter department name"
                   title="Department Name"
                 />
+                {errorsEdit.department && (
+                  <p className="text-red-600 text-sm mt-1">{errorsEdit.department.message}</p>
+                )}
               </div>
               <div className="mb-4">
                 <label className="block mb-2">Status</label>
                 <select
-                  name="status"
-                  defaultValue={selectedDepartment.status}
-                  className="border rounded px-4 py-2 w-full"
+                  {...registerEdit("status")}
+                  className={`border rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
                   title="Department Status"
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
+                {errorsEdit.status && (
+                  <p className="text-red-600 text-sm mt-1">{errorsEdit.status.message}</p>
+                )}
               </div>
               <div className="flex justify-end">
                 <button
@@ -389,6 +385,7 @@ export default function DepartmentPage() {
                 <button
                   type="submit"
                   className="bg-blue-500 text-white px-4 py-2 rounded"
+                  disabled={isSubmittingEdit}
                 >
                   Save
                 </button>
@@ -401,13 +398,10 @@ export default function DepartmentPage() {
       {/* View Department Modal */}
       {isViewDialogOpen && selectedDepartment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
             className="absolute inset-0 bg-gray-500/50"
-            onClick={() => setIsViewDialogOpen(false)} // Close the modal when clicking outside
+            onClick={() => setIsViewDialogOpen(false)}
           ></div>
-
-          {/* Modal Content */}
           <div className="relative bg-white p-8 rounded shadow-lg w-1/2 z-10">
             <h2 className="text-2xl font-bold mb-6">View Department</h2>
             <div className="mb-4">

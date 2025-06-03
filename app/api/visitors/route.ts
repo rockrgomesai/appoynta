@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { authenticate } from '@/lib/auth';
 import { authorize } from '@/lib/permissions';
 import { visitors } from '@/db/schema';
-import { sql } from 'drizzle-orm';
+import { sql, asc, desc } from 'drizzle-orm';
 import { z } from 'zod';
 
 // Zod schema for GET query parameters
@@ -41,6 +41,29 @@ export async function GET(req: Request) {
   const queryParams = Object.fromEntries(searchParams.entries());
   const { search, status, page, pageSize } = getVisitorsSchema.parse(queryParams);
 
+  // Sorting
+  const sortColumn = searchParams.get("sortColumn") || "id";
+  const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
+
+  // Validate sortColumn to prevent SQL injection
+  const allowedColumns = ["id", "name", "email", "phone", "gender", "company", "status"] as const;
+  type AllowedColumn = typeof allowedColumns[number];
+  const column = allowedColumns.includes(sortColumn as AllowedColumn) ? sortColumn as AllowedColumn : "id";
+
+  // Map allowed column names to actual column objects
+  const columnMap: Record<AllowedColumn, typeof visitors.id | typeof visitors.name | typeof visitors.email | typeof visitors.phone | typeof visitors.gender | typeof visitors.company | typeof visitors.status> = {
+    id: visitors.id,
+    name: visitors.name,
+    email: visitors.email,
+    phone: visitors.phone,
+    gender: visitors.gender,
+    company: visitors.company,
+    status: visitors.status,
+  };
+
+  // Build order by clause
+  const orderBy = sortOrder === "asc" ? asc(columnMap[column]) : desc(columnMap[column]);
+
   // Build the where condition dynamically
   const where: any[] = [];
   if (search) {
@@ -59,7 +82,7 @@ export async function GET(req: Request) {
     db.select()
       .from(visitors)
       .where(whereCondition)
-      .orderBy(sql`${visitors.id} DESC`)
+      .orderBy(orderBy)
       .limit(pageSize)
       .offset((page - 1) * pageSize),
     db

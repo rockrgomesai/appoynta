@@ -175,14 +175,14 @@ export default function DesignationPage() {
         {/* First and Previous Buttons */}
         <div>
           <button
-            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-md"
+            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             onClick={() => setCurrentPage(1)}
             disabled={currentPage === 1}
           >
             <FontAwesomeIcon icon={faAngleDoubleLeft} className="text-blue-900 w-6 h-6" />
           </button>
           <button
-            className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-md"
+            className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
           >
@@ -198,7 +198,7 @@ export default function DesignationPage() {
         {/* Page Size Selector */}
         <div>
           <select
-            className="border rounded px-4 py-2 shadow-md"
+            className="border rounded px-4 py-2 shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
             title="Select page size"
@@ -213,14 +213,14 @@ export default function DesignationPage() {
         {/* Next and Last Buttons */}
         <div>
           <button
-            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-md"
+            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             onClick={() => setCurrentPage((prev) => prev + 1)}
             disabled={currentPage === Math.ceil(totalItems / pageSize)}
           >
             <FontAwesomeIcon icon={faAngleRight} className="text-blue-900 w-6 h-6" />
           </button>
           <button
-            className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-md"
+            className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             onClick={() => setCurrentPage(Math.ceil(totalItems / pageSize))}
             disabled={currentPage === Math.ceil(totalItems / pageSize)}
           >

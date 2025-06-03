@@ -73,7 +73,7 @@ export default function AppointmentsPage() {
   const [isAddGuestPopupOpen, setIsAddGuestPopupOpen] = useState(false); // Add Guest Popup state
   const router = useRouter();
 
-  // Fetch appointments
+  // Fetch appointments - Updated to use dynamic sorting
   const fetchAppointments = async () => {
     try {
       const response = await axiosInstance.get("/appointments", {
@@ -81,8 +81,8 @@ export default function AppointmentsPage() {
           page: currentPage,
           pageSize,
           search: searchTerm,
-          sortColumn: "id",
-          sortOrder: "desc",
+          sortColumn: sortColumn || "id", // Use state value or default to "id"
+          sortOrder: sortOrder || "desc", // Use state value or default to "desc"
         },
       });
       setAppointments(response.data.data);
@@ -168,7 +168,7 @@ export default function AppointmentsPage() {
     }
   };
 
-  // Handle Sorting
+  // Handle Sorting - Updated to ensure proper state management
   const handleSort = (column: string) => {
     if (sortColumn === column) {
       // Toggle sort order if the same column is clicked
@@ -1240,8 +1240,8 @@ export default function AppointmentsPage() {
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => {
-                setIsAddHostPopupOpen(false);
-                setSubmittedHosts([]); // Reset submitted hosts
+                setIsAddGuestPopupOpen(false); // <-- Fix: close the guest popup
+                setSubmittedGuests([]);        // Optionally reset submitted guests
               }}
             >
               ✕

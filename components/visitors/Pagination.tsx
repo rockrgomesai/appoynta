@@ -22,39 +22,41 @@ const Pagination: React.FC<PaginationProps> = ({
   onPageChange,
   onPageSizeChange,
 }) => {
-  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const totalPages = Math.ceil(totalItems / pageSize);
+
   return (
     <div className="flex justify-between items-center mt-4">
+      {/* First and Previous Buttons */}
       <div>
         <button
-          type="button"
-          className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition"
+          className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
-          title="First Page"
-          aria-label="First Page"
         >
           <FontAwesomeIcon icon={faAngleDoubleLeft} className="text-blue-900 w-6 h-6" />
         </button>
         <button
-          type="button"
-          title="Previous Page"
-          className="px-4 py-2 rounded hover:bg-gray-200 transition"
+          className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
           onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
           disabled={currentPage === 1}
         >
           <FontAwesomeIcon icon={faAngleLeft} className="text-blue-900 w-6 h-6" />
         </button>
       </div>
-      <div className="text-gray-700">
-        Page {currentPage} of {totalPages}
-      </div>
-      <div>
+
+      {/* Page Display and Size Selector */}
+      <div className="text-gray-700 flex items-center space-x-2">
+        <span>
+          Page {currentPage} of {totalPages}
+        </span>
         <select
-          className="border rounded px-4 py-2"
+          className="border rounded px-4 py-2 shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
           value={pageSize}
-          onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          title="Rows per page"
+          onChange={(e) => {
+            onPageSizeChange(Number(e.target.value));
+            onPageChange(1); // Reset to first page when changing page size
+          }}
+          title="Select page size"
         >
           <option value={10}>10</option>
           <option value={20}>20</option>
@@ -62,19 +64,18 @@ const Pagination: React.FC<PaginationProps> = ({
           <option value={100}>100</option>
         </select>
       </div>
+
+      {/* Next and Last Buttons */}
       <div>
         <button
-          type="button"
-          title="Next Page"
-          className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition"
+          className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
         >
           <FontAwesomeIcon icon={faAngleRight} className="text-blue-900 w-6 h-6" />
         </button>
         <button
-          type="button"
-          className="px-4 py-2 rounded hover:bg-gray-200 transition"
+          className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
         >
