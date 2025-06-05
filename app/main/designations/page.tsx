@@ -2,10 +2,32 @@
 
 import React, { useState, useEffect } from "react";
 import axiosInstance from "@/lib/axios";
-import { Designation } from "@/types/Designation"; // Import the Designation type
+import { Designation } from "@/types/Designation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faRemove, faEye, faAngleDoubleLeft, faAngleLeft, faAngleRight, faAngleDoubleRight } from "@fortawesome/free-solid-svg-icons";
+import { 
+  faEdit, 
+  faRemove, 
+  faEye, 
+  faAngleDoubleLeft, 
+  faAngleLeft, 
+  faAngleRight, 
+  faAngleDoubleRight,
+  faSort,
+  faSortUp,
+  faSortDown 
+} from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-hot-toast";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+// Zod schema
+const designationSchema = z.object({
+  designation: z.string().min(2, "Designation name is required").max(255, "Designation name too long"),
+  status: z.enum(["Active", "Inactive"], { required_error: "Status is required" }),
+});
+
+type DesignationForm = z.infer<typeof designationSchema>;
 
 export default function DesignationPage() {
   const [designations, setDesignations] = useState<Designation[]>([]);
@@ -17,66 +39,105 @@ export default function DesignationPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
+  const [sortColumn, setSortColumn] = useState<string | null>("id");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Add Designation Form
+  const {
+    register: registerAdd,
+    handleSubmit: handleSubmitAdd,
+    reset: resetAdd,
+    formState: { errors: errorsAdd, isSubmitting: isSubmittingAdd },
+  } = useForm<DesignationForm>({
+    resolver: zodResolver(designationSchema),
+    defaultValues: { designation: "", status: "Active" },
+  });
+
+  // Edit Designation Form
+  const {
+    register: registerEdit,
+    handleSubmit: handleSubmitEdit,
+    reset: resetEdit,
+    formState: { errors: errorsEdit, isSubmitting: isSubmittingEdit },
+  } = useForm<DesignationForm>({
+    resolver: zodResolver(designationSchema),
+  });
 
   // Fetch designations
   const fetchDesignations = async () => {
     try {
       const response = await axiosInstance.get("/designations", {
-        params: { page: currentPage, pageSize, search: searchTerm },
+        params: {
+          page: currentPage,
+          pageSize,
+          search: searchTerm,
+          sortColumn: sortColumn || "id",
+          sortOrder: sortOrder || "desc",
+        },
       });
       setDesignations(response.data.data);
       setTotalItems(response.data.total);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch designations:", error);
+      toast.error(error?.response?.data?.error || "Failed to fetch designations");
     }
   };
 
   useEffect(() => {
     fetchDesignations();
-  }, [currentPage, pageSize, searchTerm]);
+  }, [currentPage, pageSize, searchTerm, sortColumn, sortOrder]);
+
+  // Handle sorting
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortOrder("asc");
+    }
+  };
+
+  // Get sort icon
+  const getSortIcon = (column: string) => {
+    if (sortColumn !== column) {
+      return <FontAwesomeIcon icon={faSort} className="ml-1 text-gray-400" />;
+    }
+    return sortOrder === "asc" 
+      ? <FontAwesomeIcon icon={faSortUp} className="ml-1 text-blue-600" />
+      : <FontAwesomeIcon icon={faSortDown} className="ml-1 text-blue-600" />;
+  };
 
   // Handle Add Designation
-  const handleAddDesignation = async (designationData: Omit<Designation, "id">) => {
+  const onAddDesignation = async (data: DesignationForm) => {
     try {
-      const response = await axiosInstance.post("/designations", designationData);
-      setDesignations((prev) => [...prev, response.data]);
+      await axiosInstance.post("/designations", data);
       setIsAddFormOpen(false);
+      resetAdd({ designation: "", status: "Active" });
       toast.success("Designation added successfully!");
+      
+      // Reset to first page and ensure proper sorting for new records
+      setCurrentPage(1);
+      setSortColumn("id");
+      setSortOrder("desc");
+      
+      // Fetch designations to show the new record at the top
+      fetchDesignations();
     } catch (error: any) {
-      const status = error?.response?.status;
-      const code = error?.response?.data?.code;
-      const detail = error?.response?.data?.detail;
-      const message = error?.response?.data?.message;
-      const errorText = error?.response?.data?.error;
-      if (status === 409) {
-        toast.error("Designation with this name already exists");
-      } else if (code && detail) {
-        toast.error(`Error ${code}: ${detail}`);
-      } else if (detail) {
-        toast.error(detail);
-      } else if (message) {
-        toast.error(message);
-      } else if (errorText) {
-        toast.error(errorText);
-      } else if (error?.message) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to add designation.");
-      }
-      console.error("Failed to add designation:", error);
+      toast.error(error?.response?.data?.error || "Failed to add designation.");
     }
   };
 
   // Handle Edit Designation
-  const handleEditDesignation = async (designationData: Designation) => {
+  const onEditDesignation = async (data: DesignationForm) => {
     try {
-      const response = await axiosInstance.patch(`/designations/${designationData.id}`, designationData);
-      setDesignations((prev) =>
-        prev.map((dept) => (dept.id === response.data.id ? response.data : dept))
-      );
+      if (!selectedDesignation) return;
+      await axiosInstance.patch(`/designations/${selectedDesignation.id}`, data);
       setIsEditFormOpen(false);
-    } catch (error) {
-      console.error("Failed to edit designation:", error);
+      setSelectedDesignation(null);
+      toast.success("Designation updated successfully!");
+      fetchDesignations();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to update designation.");
     }
   };
 
@@ -85,11 +146,22 @@ export default function DesignationPage() {
     if (confirm("Are you sure you want to delete this designation?")) {
       try {
         await axiosInstance.delete(`/designations/${id}`);
-        setDesignations((prev) => prev.filter((dept) => dept.id !== id));
-      } catch (error) {
-        console.error("Failed to delete designation:", error);
+        toast.success("Designation deleted.");
+        fetchDesignations();
+      } catch (error: any) {
+        toast.error(error?.response?.data?.error || "Failed to delete designation.");
       }
     }
+  };
+
+  // Open Edit Form
+  const openEditForm = (designation: Designation) => {
+    setSelectedDesignation(designation);
+    resetEdit({
+      designation: designation.designation,
+      status: designation.status as "Active" | "Inactive",
+    });
+    setIsEditFormOpen(true);
   };
 
   return (
@@ -100,7 +172,7 @@ export default function DesignationPage() {
         <div className="flex items-center space-x-4">
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search designations..."
             className="border rounded px-4 py-2"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -118,8 +190,18 @@ export default function DesignationPage() {
       <table className="w-full border-collapse border border-gray-300">
         <thead>
           <tr className="bg-gray-200 text-gray-700">
-            <th className="border border-gray-300 px-4 py-2">Designation</th>
-            <th className="border border-gray-300 px-4 py-2">Status</th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("designation")}
+            >
+              Designation {getSortIcon("designation")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("status")}
+            >
+              Status {getSortIcon("status")}
+            </th>
             <th className="border border-gray-300 px-4 py-2">Actions</th>
           </tr>
         </thead>
@@ -132,30 +214,30 @@ export default function DesignationPage() {
               >
                 <td className="border border-gray-300 px-4 py-2">{designation.designation}</td>
                 <td className="border border-gray-300 px-4 py-2">{designation.status}</td>
-                <td className="border border-gray-300 px-4 py-2">
+                <td className="border border-gray-300 px-4 py-2 text-left">
                   <button
                     className="text-blue-500 hover:underline mr-2"
                     onClick={() => {
                       setSelectedDesignation(designation);
                       setIsViewDialogOpen(true);
                     }}
+                    title="View"
                   >
-                    <FontAwesomeIcon icon={faEye} className="text-blue-500 w-5 h-5" />
+                    <FontAwesomeIcon icon={faEye} className="w-5 h-5" />
                   </button>
                   <button
                     className="text-green-500 hover:underline mr-2"
-                    onClick={() => {
-                      setSelectedDesignation(designation);
-                      setIsEditFormOpen(true);
-                    }}
+                    onClick={() => openEditForm(designation)}
+                    title="Edit"
                   >
-                    <FontAwesomeIcon icon={faEdit} className="text-green-500 w-5 h-5" />
+                    <FontAwesomeIcon icon={faEdit} className="w-5 h-5" />
                   </button>
                   <button
                     className="text-red-500 hover:underline"
                     onClick={() => handleDeleteDesignation(designation.id!)}
+                    title="Delete"
                   >
-                    <FontAwesomeIcon icon={faRemove} className="text-red-500 w-5 h-5" />
+                    <FontAwesomeIcon icon={faRemove} className="w-5 h-5" />
                   </button>
                 </td>
               </tr>
@@ -172,7 +254,6 @@ export default function DesignationPage() {
 
       {/* Pagination */}
       <div className="flex justify-between items-center mt-4">
-        {/* First and Previous Buttons */}
         <div>
           <button
             className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
@@ -189,19 +270,17 @@ export default function DesignationPage() {
             <FontAwesomeIcon icon={faAngleLeft} className="text-blue-900 w-6 h-6" />
           </button>
         </div>
-
-        {/* Page Display */}
-        <div className="text-gray-700">
-          Page {currentPage} of {Math.ceil(totalItems / pageSize)}
-        </div>
-
-        {/* Page Size Selector */}
-        <div>
+        <div className="text-gray-700 flex items-center space-x-2">
+          <span>
+            Page {currentPage} of {Math.ceil(totalItems / pageSize)}
+          </span>
           <select
             className="border rounded px-4 py-2 shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            title="Select page size"
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
@@ -209,8 +288,6 @@ export default function DesignationPage() {
             <option value={100}>100</option>
           </select>
         </div>
-
-        {/* Next and Last Buttons */}
         <div>
           <button
             className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
@@ -232,68 +309,56 @@ export default function DesignationPage() {
       {/* Add Designation Form */}
       {isAddFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
             className="absolute inset-0 bg-gray-500/50"
-            onClick={() => setIsAddFormOpen(false)} // Close the modal when clicking outside
+            onClick={() => setIsAddFormOpen(false)}
           ></div>
-
-          {/* Modal Content */}
-          <div className="relative bg-teal-50 p-8 rounded shadow-lg w-1/2 z-10">
-            {/* Close Button */}
+          <div className="relative bg-white p-8 rounded shadow-lg w-1/2 z-10">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsAddFormOpen(false)}
             >
               ✕
             </button>
-
-            <h2 className="text-2xl font-bold mb-6">Add Designation</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const formData = new FormData(form);
-                const designationData = Object.fromEntries(formData.entries());
-                handleAddDesignation({
-                  designation: designationData.designation as string,
-                  status: designationData.status as "Active" | "Inactive",
-                });
-              }}
-            >
+            <h2 className="text-2xl font-bold mb-6 text-blue-500">Add Designation</h2>
+            <form onSubmit={handleSubmitAdd(onAddDesignation)}>
               <div className="mb-4">
-                <label className="block mb-2">Designation</label>
+                <label className="block mb-2">Designation Name</label>
                 <input
                   type="text"
-                  name="designation"
-                  className="border rounded px-4 py-2 w-full"
-                  required
-                  title="Designation"
-                  placeholder="Enter designation"
+                  {...registerAdd("designation")}
+                  className={`border rounded px-4 py-2 w-full ${errorsAdd.designation ? "border-red-500" : ""}`}
+                  placeholder="Enter designation name"
                 />
+                {errorsAdd.designation && (
+                  <p className="text-red-600 text-sm mt-1">{errorsAdd.designation.message}</p>
+                )}
               </div>
               <div className="mb-4">
                 <label className="block mb-2">Status</label>
                 <select
-                  name="status"
-                  className="border rounded px-4 py-2 w-full"
-                  defaultValue="Active"
-                  title="Status"
+                  {...registerAdd("status")}
+                  className={`border rounded px-4 py-2 w-full ${errorsAdd.status ? "border-red-500" : ""}`}
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
+                {errorsAdd.status && (
+                  <p className="text-red-600 text-sm mt-1">{errorsAdd.status.message}</p>
+                )}
               </div>
               <div className="flex justify-end">
                 <button
-                  type="reset"
+                  type="button"
                   className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                  onClick={() => resetAdd({ designation: "", status: "Active" })}
                 >
                   Reset
                 </button>
                 <button
                   type="submit"
                   className="bg-blue-500 text-white px-4 py-2 rounded"
+                  disabled={isSubmittingAdd}
                 >
                   Save
                 </button>
@@ -306,59 +371,43 @@ export default function DesignationPage() {
       {/* Edit Designation Form */}
       {isEditFormOpen && selectedDesignation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
-            className="absolute inset-0  bg-gray-500/50"
+            className="absolute inset-0 bg-gray-500/50"
             onClick={() => setIsEditFormOpen(false)}
           ></div>
-
-          {/* Modal Content */}
           <div className="relative bg-white p-8 rounded shadow-lg w-1/2 z-10">
-            {/* Close Button */}
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsEditFormOpen(false)}
             >
               ✕
             </button>
-
-            <h2 className="text-2xl font-bold mb-6">Edit Designation</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const formData = new FormData(form);
-                const designationData = Object.fromEntries(formData.entries());
-                handleEditDesignation({
-                  id: selectedDesignation.id,
-                  designation: designationData.designation as string,
-                  status: designationData.status as "Active" | "Inactive",
-                });
-              }}
-            >
+            <h2 className="text-2xl font-bold mb-6 text-blue-500">Edit Designation</h2>
+            <form onSubmit={handleSubmitEdit(onEditDesignation)}>
               <div className="mb-4">
-                <label className="block mb-2">Designation</label>
+                <label className="block mb-2">Designation Name</label>
                 <input
                   type="text"
-                  name="designation"
-                  defaultValue={selectedDesignation.designation}
-                  className="border rounded px-4 py-2 w-full"
-                  required
-                  title="Designation"
-                  placeholder="Enter designation"
+                  {...registerEdit("designation")}
+                  className={`border rounded px-4 py-2 w-full ${errorsEdit.designation ? "border-red-500" : ""}`}
+                  placeholder="Enter designation name"
                 />
+                {errorsEdit.designation && (
+                  <p className="text-red-600 text-sm mt-1">{errorsEdit.designation.message}</p>
+                )}
               </div>
               <div className="mb-4">
                 <label className="block mb-2">Status</label>
                 <select
-                  name="status"
-                  defaultValue={selectedDesignation.status}
-                  className="border rounded px-4 py-2 w-full"
-                  title="Status"
+                  {...registerEdit("status")}
+                  className={`border rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
+                {errorsEdit.status && (
+                  <p className="text-red-600 text-sm mt-1">{errorsEdit.status.message}</p>
+                )}
               </div>
               <div className="flex justify-end">
                 <button
@@ -371,6 +420,7 @@ export default function DesignationPage() {
                 <button
                   type="submit"
                   className="bg-blue-500 text-white px-4 py-2 rounded"
+                  disabled={isSubmittingEdit}
                 >
                   Save
                 </button>
@@ -380,60 +430,39 @@ export default function DesignationPage() {
         </div>
       )}
 
-      {/* View Designation Modal */}
+      {/* View Designation Dialog */}
       {isViewDialogOpen && selectedDesignation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
             className="absolute inset-0 bg-gray-500/50"
-            onClick={() => setIsViewDialogOpen(false)} // Close the modal when clicking outside
+            onClick={() => setIsViewDialogOpen(false)}
           ></div>
-
-          {/* Modal Content */}
           <div className="relative bg-white p-8 rounded shadow-lg w-1/2 z-10">
-            {/* Close Button */}
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsViewDialogOpen(false)}
             >
               ✕
             </button>
-
-            <h2 className="text-2xl font-bold mb-6">View Designation</h2>
-            <form>
-              <div className="mb-4">
-                <label className="block mb-2">Designation</label>
-                <input
-                  type="text"
-                  name="designation"
-                  value={selectedDesignation.designation}
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  readOnly
-                  title="Designation"
-                  placeholder="Enter designation"
-                />
+            <h2 className="text-2xl font-bold mb-6">Designation Details</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Designation Name</label>
+                <p className="text-gray-900">{selectedDesignation.designation}</p>
               </div>
-              <div className="mb-4">
-                <label className="block mb-2">Status</label>
-                <input
-                  type="text"
-                  name="status"
-                  value={selectedDesignation.status}
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  readOnly
-                  title="Status"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <p className="text-gray-900">{selectedDesignation.status}</p>
               </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="bg-gray-500 text-white px-4 py-2 rounded"
-                  onClick={() => setIsViewDialogOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </form>
+            </div>
+            <div className="flex justify-end mt-6">
+              <button
+                className="bg-gray-500 text-white px-4 py-2 rounded"
+                onClick={() => setIsViewDialogOpen(false)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

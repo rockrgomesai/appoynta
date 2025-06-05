@@ -3,77 +3,150 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faRemove, faEye, faSort, faSortUp, faSortDown, faAngleDoubleLeft, faAngleLeft, faAngleRight, faAngleDoubleRight, faFileAlt, faPlus, faCheck } from "@fortawesome/free-solid-svg-icons";
+import { 
+  faEdit, 
+  faRemove, 
+  faEye, 
+  faSort, 
+  faSortUp, 
+  faSortDown, 
+  faAngleDoubleLeft, 
+  faAngleLeft, 
+  faAngleRight, 
+  faAngleDoubleRight, 
+  faFileAlt, 
+  faPlus, 
+  faCheck 
+} from "@fortawesome/free-solid-svg-icons";
 import axiosInstance from "@/lib/axios";
 import "react-datepicker/dist/react-datepicker.css";
-// import ReactIOSPicker from "react-ios-time-picker"; // Commented out due to missing/incompatible package
-// import "react-ios-time-picker/dist/style.css"; // Removed due to missing file
 import "react-clock/dist/Clock.css";
 import { format, parse, addDays } from 'date-fns';
 import { toast } from "react-hot-toast";
 import ReactDatePicker from "react-datepicker";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-// Utility to coerce a time string to HH:mm or fallback
-function coerceTimeString(val: string | undefined, fallback: string): string {
-  if (val && /^\d{2}:\d{2}$/.test(val)) return val;
-  return fallback;
+// Zod schema for appointment validation
+const appointmentSchema = z.object({
+  appointment_type: z.enum(["Meeting", "Project", "Program", "Demo", "Delivery", "Personal", "Interview", "Maintenance", "Other"], {
+    required_error: "Appointment type is required"
+  }),
+  topic: z.string().min(2, "Topic is required").max(255, "Topic too long"),
+  start_date: z.string().min(1, "Start date is required"),
+  end_date: z.string().min(1, "End date is required"),
+  start_time: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+  end_time: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+  status: z.enum(["Active", "Inactive"], { required_error: "Status is required" }),
+  note: z.string().max(500, "Note too long").optional().or(z.literal("")),
+}).refine((data) => {
+  const startDate = new Date(data.start_date);
+  const endDate = new Date(data.end_date);
+  return endDate >= startDate;
+}, {
+  message: "End date must be on or after start date",
+  path: ["end_date"],
+}).refine((data) => {
+  if (data.start_date === data.end_date) {
+    const [startHour, startMin] = data.start_time.split(':').map(Number);
+    const [endHour, endMin] = data.end_time.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    return endMinutes > startMinutes;
+  }
+  return true;
+}, {
+  message: "End time must be after start time on the same day",
+  path: ["end_time"],
+});
+
+type AppointmentForm = z.infer<typeof appointmentSchema>;
+
+interface Appointment {
+  id: string;
+  appointment_type: string;
+  topic: string;
+  start_date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  note?: string;
 }
 
 export default function AppointmentsPage() {
-  const [appointments, setAppointments] = useState<
-    {
-      id: string;
-      appointment_type: string;
-      topic: string;
-      start_date: string;
-      end_date: string;
-      start_time: string;
-      end_time: string;
-      status: string;
-      note?: string;
-    }[]
-  >([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
-  const [sortColumn, setSortColumn] = useState<string | null>(null); // Track the column being sorted
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc"); // Track the sorting order
-  const [isEditPopupOpen, setIsEditPopupOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<
-    {
-      id: string;
-      appointment_type: string;
-      topic: string;
-      start_date: string;
-      end_date: string;
-      start_time: string;
-      end_time: string;
-      status: string;
-      note?: string;
-    } | null
-  >(null);
-  const [isAddPopupOpen, setIsAddPopupOpen] = useState(false);
-  const [isViewPopupOpen, setIsViewPopupOpen] = useState(false);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null); // Track which row is expanded
-  const [details, setDetails] = useState<{ hosts: any[]; guests: any[] }>({ hosts: [], guests: [] }); // Store separate hosts and guests
+  const [sortColumn, setSortColumn] = useState<string | null>("id");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  
+  // Modal states
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  
+  // Detail view states
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [details, setDetails] = useState<{ hosts: any[]; guests: any[] }>({ hosts: [], guests: [] });
+  
+  // Host/Guest popup states
   const [isAddHostPopupOpen, setIsAddHostPopupOpen] = useState(false);
-  const [users, setUsers] = useState<any[]>([]); // Store the list of users
-  const [searchUserTerm, setSearchUserTerm] = useState(""); // Search term for filtering users
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); // Debounced search term
-  const [hostCurrentPage, setHostCurrentPage] = useState(1); // Current page for Add Host
-  const [hostPageSize, setHostPageSize] = useState(10); // Page size for Add Host
-  const [hostTotalItems, setHostTotalItems] = useState(0); // Total items for Add Host
-  const [submittedHosts, setSubmittedHosts] = useState<number[]>([]); // Track submitted host IDs
-  const [guests, setGuests] = useState<any[]>([]); // Store the list of guests
-  const [guestCurrentPage, setGuestCurrentPage] = useState(1); // Current page for Add Guest
-  const [guestPageSize, setGuestPageSize] = useState(10); // Page size for Add Guest
-  const [guestTotalItems, setGuestTotalItems] = useState(0); // Total items for Add Guest
-  const [submittedGuests, setSubmittedGuests] = useState<number[]>([]); // Track submitted guest IDs
-  const [isAddGuestPopupOpen, setIsAddGuestPopupOpen] = useState(false); // Add Guest Popup state
+  const [isAddGuestPopupOpen, setIsAddGuestPopupOpen] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
+  const [guests, setGuests] = useState<any[]>([]);
+  const [searchUserTerm, setSearchUserTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [hostCurrentPage, setHostCurrentPage] = useState(1);
+  const [hostPageSize, setHostPageSize] = useState(10);
+  const [hostTotalItems, setHostTotalItems] = useState(0);
+  const [guestCurrentPage, setGuestCurrentPage] = useState(1);
+  const [guestPageSize, setGuestPageSize] = useState(10);
+  const [guestTotalItems, setGuestTotalItems] = useState(0);
+  const [submittedHosts, setSubmittedHosts] = useState<number[]>([]);
+  const [submittedGuests, setSubmittedGuests] = useState<number[]>([]);
+
   const router = useRouter();
 
-  // Fetch appointments - Updated to use dynamic sorting
+  // Add Appointment Form
+  const {
+    register: registerAdd,
+    handleSubmit: handleSubmitAdd,
+    reset: resetAdd,
+    setValue: setValueAdd,
+    watch: watchAdd,
+    formState: { errors: errorsAdd, isSubmitting: isSubmittingAdd },
+  } = useForm<AppointmentForm>({
+    resolver: zodResolver(appointmentSchema),
+    defaultValues: {
+      appointment_type: "Meeting",
+      topic: "",
+      start_date: format(addDays(new Date(), 1), "yyyy-MM-dd"),
+      end_date: format(addDays(new Date(), 1), "yyyy-MM-dd"),
+      start_time: "09:00",
+      end_time: "17:00",
+      status: "Active",
+      note: "",
+    },
+  });
+
+  // Edit Appointment Form
+  const {
+    register: registerEdit,
+    handleSubmit: handleSubmitEdit,
+    reset: resetEdit,
+    setValue: setValueEdit,
+    watch: watchEdit,
+    formState: { errors: errorsEdit, isSubmitting: isSubmittingEdit },
+  } = useForm<AppointmentForm>({
+    resolver: zodResolver(appointmentSchema),
+  });
+
+  // Fetch appointments
   const fetchAppointments = async () => {
     try {
       const response = await axiosInstance.get("/appointments", {
@@ -81,15 +154,15 @@ export default function AppointmentsPage() {
           page: currentPage,
           pageSize,
           search: searchTerm,
-          sortColumn: sortColumn || "id", // Use state value or default to "id"
-          sortOrder: sortOrder || "desc", // Use state value or default to "desc"
+          sortColumn: sortColumn || "id",
+          sortOrder: sortOrder || "desc",
         },
       });
       setAppointments(response.data.data);
       setTotalItems(response.data.total);
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Failed to fetch appointments");
       console.error("Failed to fetch appointments:", error);
+      toast.error(error?.response?.data?.error || "Failed to fetch appointments");
     }
   };
 
@@ -104,8 +177,8 @@ export default function AppointmentsPage() {
           pageSize: hostPageSize,
         },
       });
-      setUsers(response.data.data); // Update the list of users
-      setHostTotalItems(response.data.total); // Update the total number of users
+      setUsers(response.data.data);
+      setHostTotalItems(response.data.total);
     } catch (error) {
       console.error("Failed to fetch active users:", error);
     }
@@ -121,8 +194,8 @@ export default function AppointmentsPage() {
           pageSize: guestPageSize,
         },
       });
-      setGuests(response.data.data); // Update the list of guests
-      setGuestTotalItems(response.data.total); // Update the total number of guests
+      setGuests(response.data.data);
+      setGuestTotalItems(response.data.total);
     } catch (error) {
       console.error("Failed to fetch active guests:", error);
     }
@@ -132,14 +205,15 @@ export default function AppointmentsPage() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchUserTerm);
-    }, 500); // 500ms debounce delay
-
-    return () => {
-      clearTimeout(handler); // Clear timeout if the user types again
-    };
+    }, 500);
+    return () => clearTimeout(handler);
   }, [searchUserTerm]);
 
-  // Fetch users whenever the debounced search term changes
+  // Effects
+  useEffect(() => {
+    fetchAppointments();
+  }, [currentPage, pageSize, searchTerm, sortColumn, sortOrder]);
+
   useEffect(() => {
     if (isAddHostPopupOpen) {
       fetchActiveUsers(debouncedSearchTerm);
@@ -152,91 +226,130 @@ export default function AppointmentsPage() {
     }
   }, [guestCurrentPage, guestPageSize, debouncedSearchTerm, isAddGuestPopupOpen]);
 
-  useEffect(() => {
-    fetchAppointments();
-  }, [currentPage, pageSize, searchTerm, sortColumn, sortOrder]);
-
-  // Handle Delete
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this appointment?")) {
-      try {
-        await axiosInstance.delete(`/appointments/${id}`);
-        fetchAppointments(); // Refresh the list
-      } catch (error) {
-        console.error("Failed to delete appointment:", error);
-      }
-    }
-  };
-
-  // Handle Sorting - Updated to ensure proper state management
+  // Handle sorting
   const handleSort = (column: string) => {
     if (sortColumn === column) {
-      // Toggle sort order if the same column is clicked
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
-      // Set new column and default to ascending order
       setSortColumn(column);
       setSortOrder("asc");
     }
   };
 
-  const handleEditClick = (appointment: typeof selectedAppointment) => {
-    setSelectedAppointment({
-      ...appointment!,
-      start_time: coerceTimeString(appointment?.start_time, "09:00"),
-      end_time: coerceTimeString(appointment?.end_time, "17:00"),
-    });
-    setIsEditPopupOpen(true);
+  // Get sort icon
+  const getSortIcon = (column: string) => {
+    if (sortColumn !== column) {
+      return <FontAwesomeIcon icon={faSort} className="ml-1 text-gray-400" />;
+    }
+    return sortOrder === "asc" 
+      ? <FontAwesomeIcon icon={faSortUp} className="ml-1 text-blue-600" />
+      : <FontAwesomeIcon icon={faSortDown} className="ml-1 text-blue-600" />;
   };
 
-  const handleAddClick = () => {
-    const tomorrow = format(addDays(new Date(), 1), "yyyy-MM-dd");
-    setSelectedAppointment({
-      id: "",
-      appointment_type: "",
-      topic: "",
-      start_date: tomorrow,
-      end_date: tomorrow,
-      start_time: "09:00", // Set default start time
-      end_time: "17:00",   // Set default end time
-      status: "Active",
-      note: "",
-    });
-    setIsAddPopupOpen(true);
+  // Handle Add Appointment
+  const onAddAppointment = async (data: AppointmentForm) => {
+    try {
+      await axiosInstance.post("/appointments", data);
+      setIsAddFormOpen(false);
+      resetAdd({
+        appointment_type: "Meeting",
+        topic: "",
+        start_date: format(addDays(new Date(), 1), "yyyy-MM-dd"),
+        end_date: format(addDays(new Date(), 1), "yyyy-MM-dd"),
+        start_time: "09:00",
+        end_time: "17:00",
+        status: "Active",
+        note: "",
+      });
+      toast.success("Appointment added successfully!");
+      
+      // Reset to first page and ensure proper sorting for new records
+      setCurrentPage(1);
+      setSortColumn("id");
+      setSortOrder("desc");
+      
+      fetchAppointments();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to add appointment.");
+    }
   };
 
-  const handleViewClick = (appointment: typeof selectedAppointment) => {
+  // Handle Edit Appointment
+  const onEditAppointment = async (data: AppointmentForm) => {
+    try {
+      if (!selectedAppointment) return;
+      await axiosInstance.patch(`/appointments/${selectedAppointment.id}`, data);
+      setIsEditFormOpen(false);
+      setSelectedAppointment(null);
+      toast.success("Appointment updated successfully!");
+      fetchAppointments();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to update appointment.");
+    }
+  };
+
+  // Handle Delete
+  const handleDeleteAppointment = async (id: string) => {
+    if (confirm("Are you sure you want to delete this appointment?")) {
+      try {
+        await axiosInstance.delete(`/appointments/${id}`);
+        toast.success("Appointment deleted.");
+        fetchAppointments();
+      } catch (error: any) {
+        toast.error(error?.response?.data?.error || "Failed to delete appointment.");
+      }
+    }
+  };
+
+  // Helper to trim seconds from time string
+  function toHHMM(time: string) {
+    if (!time) return "";
+    // Handles "HH:mm:ss" or "HH:mm"
+    return time.length === 8 ? time.slice(0, 5) : time;
+  }
+
+  // Open Edit Form
+  const openEditForm = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
-    setIsViewPopupOpen(true);
+    resetEdit({
+      appointment_type: appointment.appointment_type as any,
+      topic: appointment.topic,
+      start_date: appointment.start_date,
+      end_date: appointment.end_date,
+      start_time: toHHMM(appointment.start_time),
+      end_time: toHHMM(appointment.end_time),
+      status: appointment.status as "Active" | "Inactive",
+      note: appointment.note || "",
+    });
+    setIsEditFormOpen(true);
   };
 
+  // Handle detail expansion
   const handleFileListClick = async (appointment_id: string) => {
     if (expandedRow === appointment_id) {
-      // Collapse the row if it's already expanded
       setExpandedRow(null);
       setDetails({ hosts: [], guests: [] });
       return;
     }
 
     try {
-      // Fetch hosts and guests
       const [hostsResponse, guestsResponse] = await Promise.all([
         axiosInstance.get(`/appointment_details/hosts`, { params: { appointment_id } }),
         axiosInstance.get(`/appointment_details/guests`, { params: { appointment_id } }),
       ]);
 
-      // Ensure data is an array
       const hosts = Array.isArray(hostsResponse.data.data) ? hostsResponse.data.data : [];
       const guests = Array.isArray(guestsResponse.data.data) ? guestsResponse.data.data : [];
 
-      // Combine hosts and guests into separate arrays
       setDetails({ hosts, guests });
-      setExpandedRow(appointment_id); // Expand the row
+      setExpandedRow(appointment_id);
     } catch (error) {
       console.error("Failed to fetch appointment details:", error);
+      toast.error("Failed to fetch appointment details");
     }
   };
 
+  // Handle host/guest management
   const handleAddHost = async (hostId: number, appointmentId: number) => {
     try {
       const response = await axiosInstance.post("/appointment_details/hosts", {
@@ -245,19 +358,17 @@ export default function AppointmentsPage() {
       });
 
       if (response.status === 201) {
-        const newHost = response.data; // Assuming the API returns the newly added host details
-        setSubmittedHosts((prev) => [...prev, hostId]); // Add host ID to submitted list
+        const newHost = response.data;
+        setSubmittedHosts((prev) => [...prev, hostId]);
         setDetails((prevDetails) => ({
           ...prevDetails,
-          hosts: [...prevDetails.hosts, newHost], // Add the new host to the hosts array
+          hosts: [...prevDetails.hosts, newHost],
         }));
-        toast.success("Host added successfully!"); // Show success message
-      } else {
-        toast.error(`Failed to add host: ${response.data.error || "Unknown error"}`); // Show error message
+        toast.success("Host added successfully!");
       }
     } catch (error: any) {
       console.error("Error adding host:", error);
-      toast.error(error.response?.data?.error || "Failed to add host. Please try again."); // Show error message
+      toast.error(error.response?.data?.error || "Failed to add host. Please try again.");
     }
   };
 
@@ -269,19 +380,17 @@ export default function AppointmentsPage() {
       });
 
       if (response.status === 201) {
-        const newGuest = response.data; // Assuming the API returns the newly added guest details
-        setSubmittedGuests((prev) => [...prev, visitorId]); // Add guest ID to submitted list
+        const newGuest = response.data;
+        setSubmittedGuests((prev) => [...prev, visitorId]);
         setDetails((prevDetails) => ({
           ...prevDetails,
-          guests: [...prevDetails.guests, newGuest], // Add the new guest to the guests array
+          guests: [...prevDetails.guests, newGuest],
         }));
-        toast.success("Guest added successfully!"); // Show success message
-      } else {
-        toast.error(`Failed to add guest: ${response.data.error || "Unknown error"}`); // Show error message
+        toast.success("Guest added successfully!");
       }
     } catch (error: any) {
       console.error("Error adding guest:", error);
-      toast.error(error.response?.data?.error || "Failed to add guest. Please try again."); // Show error message
+      toast.error(error.response?.data?.error || "Failed to add guest. Please try again.");
     }
   };
 
@@ -289,22 +398,18 @@ export default function AppointmentsPage() {
     <div className="p-4">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-blue-500">Appointments</h1>
+        <h1 className="text-2xl text-blue-500 font-extrabold">Appointments</h1>
         <div className="flex items-center space-x-4">
-          <label htmlFor="search-appointments" className="sr-only">Search Appointments</label>
-          <label htmlFor="search-appointments" className="sr-only">Search Appointments</label>
           <input
-            id="search-appointments"
             type="text"
             placeholder="Search appointments..."
-            title="Search appointments"
             className="border rounded px-4 py-2"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <button
-            className="bg-blue-500 text-white px-4 py-2 rounded"
-            onClick={handleAddClick}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+            onClick={() => setIsAddFormOpen(true)}
           >
             + Add
           </button>
@@ -315,89 +420,26 @@ export default function AppointmentsPage() {
       <table className="w-full border-collapse border border-gray-300">
         <thead>
           <tr className="bg-gray-200 text-gray-700">
-            <th
-              className="border border-gray-300 px-4 py-2 cursor-pointer"
-              onClick={() => handleSort("appointment_type")}
-            >
-              Type
-              {sortColumn === "appointment_type" && (
-                <FontAwesomeIcon
-                  icon={sortOrder === "asc" ? faSortUp : faSortDown}
-                  className="ml-2"
-                />
-              )}
+            <th className="border border-gray-300 px-4 py-2 cursor-pointer" onClick={() => handleSort("appointment_type")}>
+              Type {getSortIcon("appointment_type")}
             </th>
-            <th
-              className="border border-gray-300 px-4 py-2 cursor-pointer"
-              onClick={() => handleSort("topic")}
-            >
-              Topic
-              {sortColumn === "topic" && (
-                <FontAwesomeIcon
-                  icon={sortOrder === "asc" ? faSortUp : faSortDown}
-                  className="ml-2"
-                />
-              )}
+            <th className="border border-gray-300 px-4 py-2 cursor-pointer" onClick={() => handleSort("topic")}>
+              Topic {getSortIcon("topic")}
             </th>
-            <th
-              className="border border-gray-300 px-4 py-2 cursor-pointer"
-              onClick={() => handleSort("start_date")}
-            >
-              Start Date
-              {sortColumn === "start_date" && (
-                <FontAwesomeIcon
-                  icon={sortOrder === "asc" ? faSortUp : faSortDown}
-                  className="ml-2"
-                />
-              )}
+            <th className="border border-gray-300 px-4 py-2 cursor-pointer" onClick={() => handleSort("start_date")}>
+              Start Date {getSortIcon("start_date")}
             </th>
-            <th
-              className="border border-gray-300 px-4 py-2 cursor-pointer"
-              onClick={() => handleSort("end_date")}
-            >
-              End Date
-              {sortColumn === "end_date" && (
-                <FontAwesomeIcon
-                  icon={sortOrder === "asc" ? faSortUp : faSortDown}
-                  className="ml-2"
-                />
-              )}
+            <th className="border border-gray-300 px-4 py-2 cursor-pointer" onClick={() => handleSort("end_date")}>
+              End Date {getSortIcon("end_date")}
             </th>
-            <th
-              className="border border-gray-300 px-4 py-2 cursor-pointer"
-              onClick={() => handleSort("start_time")}
-            >
-              Start Time
-              {sortColumn === "start_time" && (
-                <FontAwesomeIcon
-                  icon={sortOrder === "asc" ? faSortUp : faSortDown}
-                  className="ml-2"
-                />
-              )}
+            <th className="border border-gray-300 px-4 py-2 cursor-pointer" onClick={() => handleSort("start_time")}>
+              Start Time {getSortIcon("start_time")}
             </th>
-            <th
-              className="border border-gray-300 px-4 py-2 cursor-pointer"
-              onClick={() => handleSort("end_time")}
-            >
-              End Time
-              {sortColumn === "end_time" && (
-                <FontAwesomeIcon
-                  icon={sortOrder === "asc" ? faSortUp : faSortDown}
-                  className="ml-2"
-                />
-              )}
+            <th className="border border-gray-300 px-4 py-2 cursor-pointer" onClick={() => handleSort("end_time")}>
+              End Time {getSortIcon("end_time")}
             </th>
-            <th
-              className="border border-gray-300 px-4 py-2 cursor-pointer"
-              onClick={() => handleSort("status")}
-            >
-              Status
-              {sortColumn === "status" && (
-                <FontAwesomeIcon
-                  icon={sortOrder === "asc" ? faSortUp : faSortDown}
-                  className="ml-2"
-                />
-              )}
+            <th className="border border-gray-300 px-4 py-2 cursor-pointer" onClick={() => handleSort("status")}>
+              Status {getSortIcon("status")}
             </th>
             <th className="border border-gray-300 px-4 py-2">Actions</th>
           </tr>
@@ -407,11 +449,9 @@ export default function AppointmentsPage() {
             appointments.map((appointment) => (
               <React.Fragment key={appointment.id}>
                 {/* Main Row */}
-                <tr
-                  className={`odd:bg-blue-50 even:bg-blue-100 hover:bg-blue-200 transition-colors duration-200 ${
-                    expandedRow === appointment.id ? "bg-gray-500" : ""
-                  }`}
-                >
+                <tr className={`odd:bg-blue-50 even:bg-blue-100 hover:bg-blue-200 transition-colors duration-200 ${
+                  expandedRow === appointment.id ? "bg-gray-500" : ""
+                }`}>
                   <td className="border border-gray-300 px-4 py-2">{appointment.appointment_type}</td>
                   <td className="border border-gray-300 px-4 py-2">{appointment.topic}</td>
                   <td className="border border-gray-300 px-4 py-2">{appointment.start_date}</td>
@@ -419,30 +459,37 @@ export default function AppointmentsPage() {
                   <td className="border border-gray-300 px-4 py-2">{appointment.start_time}</td>
                   <td className="border border-gray-300 px-4 py-2">{appointment.end_time}</td>
                   <td className="border border-gray-300 px-4 py-2">{appointment.status}</td>
-                  <td className="border border-gray-300 px-4 py-2 flex space-x-2">
+                  <td className="border border-gray-300 px-4 py-2 text-left">
                     <button
-                      className="text-blue-500 hover:underline"
-                      onClick={() => handleViewClick(appointment)}
+                      className="text-blue-500 hover:underline mr-2"
+                      onClick={() => {
+                        setSelectedAppointment(appointment);
+                        setIsViewDialogOpen(true);
+                      }}
+                      title="View"
                     >
-                      <FontAwesomeIcon icon={faEye} />
+                      <FontAwesomeIcon icon={faEye} className="w-5 h-5" />
                     </button>
                     <button
-                      className="text-green-500 hover:underline"
-                      onClick={() => handleEditClick(appointment)}
+                      className="text-green-500 hover:underline mr-2"
+                      onClick={() => openEditForm(appointment)}
+                      title="Edit"
                     >
-                      <FontAwesomeIcon icon={faEdit} />
+                      <FontAwesomeIcon icon={faEdit} className="w-5 h-5" />
                     </button>
                     <button
-                      className="text-red-500 hover:underline"
-                      onClick={() => handleDelete(appointment.id)}
+                      className="text-red-500 hover:underline mr-2"
+                      onClick={() => handleDeleteAppointment(appointment.id)}
+                      title="Delete"
                     >
-                      <FontAwesomeIcon icon={faRemove} />
+                      <FontAwesomeIcon icon={faRemove} className="w-5 h-5" />
                     </button>
                     <button
                       className="text-gray-500 hover:underline"
                       onClick={() => handleFileListClick(appointment.id)}
+                      title="Details"
                     >
-                      <FontAwesomeIcon icon={faFileAlt} />
+                      <FontAwesomeIcon icon={faFileAlt} className="w-5 h-5" />
                     </button>
                   </td>
                 </tr>
@@ -459,8 +506,8 @@ export default function AppointmentsPage() {
                             <button
                               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
                               onClick={() => {
-                                setSelectedAppointment(appointment); // Set the selected appointment
-                                setIsAddHostPopupOpen(true); // Open the Add Host popup
+                                setSelectedAppointment(appointment);
+                                setIsAddHostPopupOpen(true);
                               }}
                             >
                               + Add Host
@@ -497,8 +544,8 @@ export default function AppointmentsPage() {
                             <button
                               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
                               onClick={() => {
-                                setSelectedAppointment(appointment); // Set the selected appointment
-                                setIsAddGuestPopupOpen(true); // Open the Add Guest popup
+                                setSelectedAppointment(appointment);
+                                setIsAddGuestPopupOpen(true);
                               }}
                             >
                               + Add Guest
@@ -543,278 +590,83 @@ export default function AppointmentsPage() {
         </tbody>
       </table>
 
-      {/* Add Popup */}
-      {isAddPopupOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-1/2 relative">
-            {/* Close Button */}
-            <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-              onClick={() => setIsAddPopupOpen(false)}
-            >
-              ✕
-            </button>
-            <h2 className="text-xl font-bold mb-4">Add Appointment</h2>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                // Validate time fields
-                if (!selectedAppointment?.start_time || !selectedAppointment?.end_time) {
-                  toast.error("Start Time and End Time are required.");
-                  return;
-                }
-                try {
-                  // Convert dates back to "yyyy-MM-dd" before submitting
-                  const formattedAppointment = {
-                    ...selectedAppointment,
-                    start_date: format(selectedAppointment!.start_date, "yyyy-MM-dd"),
-                    end_date: format(selectedAppointment!.end_date, "yyyy-MM-dd"),
-                    start_time: selectedAppointment.start_time || "09:00",
-                    end_time: selectedAppointment.end_time || "17:00",
-                  };
-                  await axiosInstance.post("/appointments", formattedAppointment);
-                  setIsAddPopupOpen(false);
-                  fetchAppointments(); // Refresh the list
-                } catch (error) {
-                  console.error("Failed to add appointment:", error);
-                }
-              }}
-            >
-              <div className="grid grid-cols-2 gap-4">
-                {/* Row 1: Type, Topic */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Type</label>
-                  <select
-                    title="Appointment Type"
-                    value={selectedAppointment?.appointment_type || ""}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        appointment_type: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                  >
-                    <option value="" disabled>
-                      Select Type
-                    </option>
-                    <option value="Meeting">Meeting</option>
-                    <option value="Project">Project</option>
-                    <option value="Program">Program</option>
-                    <option value="Demo">Demo</option>
-                    <option value="Delivery">Delivery</option>
-                    <option value="Personal">Personal</option>
-                    <option value="Interview">Interview</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label htmlFor="topic-input" className="block text-sm font-medium text-gray-700">Topic</label>
-                  <input
-                    id="topic-input"
-                    type="text"
-                    value={selectedAppointment?.topic || ""}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        topic: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                    title="Topic"
-                    placeholder="Enter topic"
-                  />
-                </div>
-
-                {/* Row 2: Start Date, End Date */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                  <ReactDatePicker
-                    selected={
-                      selectedAppointment?.start_date && !isNaN(new Date(selectedAppointment.start_date).getTime())
-                        ? new Date(selectedAppointment.start_date)
-                        : null
-                    }
-                    onChange={(date) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        start_date: date ? format(date, "yyyy-MM-dd") : "",
-                      }))
-                    }
-                    dateFormat="dd/MM/yyyy"
-                    className="border rounded px-4 py-2 w-full"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">End Date</label>
-                  <ReactDatePicker
-                    selected={selectedAppointment?.end_date ? new Date(selectedAppointment.end_date) : null}
-                    onChange={(date) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        end_date: date ? format(date, "yyyy-MM-dd") : "",
-                      }))
-                    }
-                    dateFormat="dd/MM/yyyy"
-                    className="border rounded px-4 py-2 w-full"
-                  />
-                </div>
-
-                {/* Row 3: Start Time, End Time */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700" htmlFor="start-time-input">Start Time</label>
-                  <input
-                    id="start-time-input"
-                    type="time"
-                    value={selectedAppointment?.start_time || "09:00"}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        start_time: e.target.value || "09:00",
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="Start Time"
-                    placeholder="09:00"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700" htmlFor="end-time-input">End Time</label>
-                  <input
-                    id="end-time-input"
-                    type="time"
-                    value={selectedAppointment?.end_time || "17:00"}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        end_time: e.target.value || "17:00",
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                    required
-                    title="End Time"
-                    placeholder="17:00"
-                  />
-                </div>
-
-                {/* Row 4: Status, Note */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <select
-                    title="Status"
-                    value={selectedAppointment?.status || ""}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        status: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                  >
-                    <option value="Active">Active</option>
-                  </select>
-                  <label htmlFor="note-input" className="block text-sm font-medium text-gray-700">Note</label>
-                  <textarea
-                    id="note-input"
-                    title="Note"
-                    placeholder="Enter note"
-                    value={selectedAppointment?.note || ""}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        note: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                    rows={3}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  className="bg-gray-500 text-white px-4 py-2 rounded"
-                  onClick={() =>
-                    setSelectedAppointment({
-                      id: "",
-                      appointment_type: "",
-                      topic: "",
-                      start_date: format(addDays(new Date(), 1), "dd/MM/yyyy"),
-                      end_date: format(addDays(new Date(), 1), "dd/MM/yyyy"),
-                      start_time: "",
-                      end_time: "",
-                      status: "",
-                      note: "",
-                    })
-                  }
-                >
-                  Reset
-                </button>
-                <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
+      {/* Pagination */}
+      <div className="flex justify-between items-center mt-4">
+        <div>
+          <button
+            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+          >
+            <FontAwesomeIcon icon={faAngleDoubleLeft} className="text-blue-900 w-6 h-6" />
+          </button>
+          <button
+            className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            <FontAwesomeIcon icon={faAngleLeft} className="text-blue-900 w-6 h-6" />
+          </button>
         </div>
-      )}
+        <div className="text-gray-700 flex items-center space-x-2">
+          <span>
+            Page {currentPage} of {Math.ceil(totalItems / pageSize)}
+          </span>
+          <select
+            className="border rounded px-4 py-2 shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+        <div>
+          <button
+            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
+            onClick={() => setCurrentPage((prev) => prev + 1)}
+            disabled={currentPage === Math.ceil(totalItems / pageSize)}
+          >
+            <FontAwesomeIcon icon={faAngleRight} className="text-blue-900 w-6 h-6" />
+          </button>
+          <button
+            className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
+            onClick={() => setCurrentPage(Math.ceil(totalItems / pageSize))}
+            disabled={currentPage === Math.ceil(totalItems / pageSize)}
+          >
+            <FontAwesomeIcon icon={faAngleDoubleRight} className="text-blue-900 w-6 h-6" />
+          </button>
+        </div>
+      </div>
 
-      {/* Edit Popup */}
-      {isEditPopupOpen && selectedAppointment && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-1/2 relative">
-            {/* Close Button */}
+      {/* Add Appointment Form */}
+      {isAddFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-gray-500/50"
+            onClick={() => setIsAddFormOpen(false)}
+          ></div>
+          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 max-w-4xl z-10 max-h-[90vh] overflow-y-auto">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-              onClick={() => setIsEditPopupOpen(false)}
+              onClick={() => setIsAddFormOpen(false)}
             >
               ✕
             </button>
-            <h2 className="text-xl font-bold mb-4">Edit Appointment</h2>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  // Always coerce time fields before submit
-                  const startTime = coerceTimeString(selectedAppointment?.start_time, "09:00");
-                  const endTime = coerceTimeString(selectedAppointment?.end_time, "17:00");
-                  // Convert dates back to "yyyy-MM-dd" before submitting
-                  const formattedAppointment = {
-                    ...selectedAppointment!,
-                    start_date: format(new Date(selectedAppointment!.start_date), "yyyy-MM-dd"),
-                    end_date: format(new Date(selectedAppointment!.end_date), "yyyy-MM-dd"),
-                    start_time: startTime,
-                    end_time: endTime,
-                  };
-                  await axiosInstance.patch(`/appointments/${selectedAppointment.id}`, formattedAppointment);
-                  setIsEditPopupOpen(false);
-                  fetchAppointments(); // Refresh the list
-                } catch (error) {
-                  console.error("Failed to update appointment:", error);
-                }
-              }}
-            >
-              <div className="grid grid-cols-2 gap-4">
-                {/* Row 1: Type, Topic */}
+            <h2 className="text-2xl font-bold mb-6 text-blue-500">Add Appointment</h2>
+            <form onSubmit={handleSubmitAdd(onAddAppointment)}>
+              <div className="grid grid-cols-2 gap-6">
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Type</label>
+                  <label className="block mb-2">Type</label>
                   <select
-                    title="Appointment Type"
-                    value={selectedAppointment?.appointment_type || ""}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        appointment_type: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
+                    {...registerAdd("appointment_type")}
+                    className={`border rounded px-4 py-2 w-full ${errorsAdd.appointment_type ? "border-red-500" : ""}`}
                   >
-                    <option value="" disabled>
-                      Select Type
-                    </option>
                     <option value="Meeting">Meeting</option>
                     <option value="Project">Project</option>
                     <option value="Program">Program</option>
@@ -825,142 +677,115 @@ export default function AppointmentsPage() {
                     <option value="Maintenance">Maintenance</option>
                     <option value="Other">Other</option>
                   </select>
+                  {errorsAdd.appointment_type && (
+                    <p className="text-red-600 text-sm mt-1">{errorsAdd.appointment_type.message}</p>
+                  )}
                 </div>
+
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Topic</label>
+                  <label className="block mb-2">Topic</label>
                   <input
                     type="text"
-                    value={selectedAppointment?.topic || ""}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        topic: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                    title="Topic"
+                    {...registerAdd("topic")}
+                    className={`border rounded px-4 py-2 w-full ${errorsAdd.topic ? "border-red-500" : ""}`}
                     placeholder="Enter topic"
                   />
+                  {errorsAdd.topic && (
+                    <p className="text-red-600 text-sm mt-1">{errorsAdd.topic.message}</p>
+                  )}
                 </div>
 
-                {/* Row 2: Start Date, End Date */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                  <label className="block mb-2">Start Date</label>
                   <ReactDatePicker
-                    selected={
-                      selectedAppointment?.start_date && !isNaN(new Date(selectedAppointment.start_date).getTime())
-                        ? new Date(selectedAppointment.start_date)
-                        : null
-                    }
-                    onChange={(date) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        start_date: date ? format(date, "yyyy-MM-dd") : "",
-                      }))
-                    }
+                    selected={watchAdd("start_date") ? new Date(watchAdd("start_date")) : null}
+                    onChange={(date) => setValueAdd("start_date", date ? format(date, "yyyy-MM-dd") : "")}
                     dateFormat="dd/MM/yyyy"
-                    className="border rounded px-4 py-2 w-full"
+                    className={`border rounded px-4 py-2 w-full ${errorsAdd.start_date ? "border-red-500" : ""}`}
                   />
+                  {errorsAdd.start_date && (
+                    <p className="text-red-600 text-sm mt-1">{errorsAdd.start_date.message}</p>
+                  )}
                 </div>
+
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">End Date</label>
+                  <label className="block mb-2">End Date</label>
                   <ReactDatePicker
-                    selected={
-                      selectedAppointment?.end_date && !isNaN(new Date(selectedAppointment.end_date).getTime())
-                        ? new Date(selectedAppointment.end_date)
-                        : null
-                    }
-                    onChange={(date) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        end_date: date ? format(date, "yyyy-MM-dd") : "",
-                      }))
-                    }
+                    selected={watchAdd("end_date") ? new Date(watchAdd("end_date")) : null}
+                    onChange={(date) => setValueAdd("end_date", date ? format(date, "yyyy-MM-dd") : "")}
                     dateFormat="dd/MM/yyyy"
-                    className="border rounded px-4 py-2 w-full"
+                    className={`border rounded px-4 py-2 w-full ${errorsAdd.end_date ? "border-red-500" : ""}`}
                   />
+                  {errorsAdd.end_date && (
+                    <p className="text-red-600 text-sm mt-1">{errorsAdd.end_date.message}</p>
+                  )}
                 </div>
 
-                {/* Row 3: Start Time, End Time */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700" htmlFor="start-time-input">Start Time</label>
+                  <label className="block mb-2">Start Time</label>
                   <input
-                    id="start-time-input"
                     type="time"
-                    value={selectedAppointment?.start_time || "09:00"}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        start_time: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                    title="Start Time"
-                    placeholder="09:00"
+                    {...registerAdd("start_time")}
+                    className={`border rounded px-4 py-2 w-full ${errorsAdd.start_time ? "border-red-500" : ""}`}
                   />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700" htmlFor="end-time-input">End Time</label>
-                  <input
-                    id="end-time-input"
-                    type="time"
-                    value={selectedAppointment?.end_time || "17:00"}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        end_time: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
-                    title="End Time"
-                    placeholder="17:00"
-                  />
+                  {errorsAdd.start_time && (
+                    <p className="text-red-600 text-sm mt-1">{errorsAdd.start_time.message}</p>
+                  )}
                 </div>
 
-                {/* Row 4: Status, Note */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <label className="block mb-2">End Time</label>
+                  <input
+                    type="time"
+                    {...registerAdd("end_time")}
+                    className={`border rounded px-4 py-2 w-full ${errorsAdd.end_time ? "border-red-500" : ""}`}
+                  />
+                  {errorsAdd.end_time && (
+                    <p className="text-red-600 text-sm mt-1">{errorsAdd.end_time.message}</p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block mb-2">Status</label>
                   <select
-                    title="Status"
-                    value={selectedAppointment?.status || ""}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        status: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
+                    {...registerAdd("status")}
+                    className={`border rounded px-4 py-2 w-full ${errorsAdd.status ? "border-red-500" : ""}`}
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
+                  {errorsAdd.status && (
+                    <p className="text-red-600 text-sm mt-1">{errorsAdd.status.message}</p>
+                  )}
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Note</label>
+
+                <div className="mb-4 col-span-2">
+                  <label className="block mb-2">Note</label>
                   <textarea
-                    title="Note"
-                    value={selectedAppointment?.note || ""}
-                    onChange={(e) =>
-                      setSelectedAppointment((prev) => ({
-                        ...prev!,
-                        note: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-4 py-2 w-full"
+                    {...registerAdd("note")}
+                    className={`border rounded px-4 py-2 w-full ${errorsAdd.note ? "border-red-500" : ""}`}
                     rows={3}
+                    placeholder="Enter note"
                   />
+                  {errorsAdd.note && (
+                    <p className="text-red-600 text-sm mt-1">{errorsAdd.note.message}</p>
+                  )}
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-4">
+              <div className="flex justify-end">
                 <button
                   type="button"
-                  className="bg-gray-500 text-white px-4 py-2 rounded"
-                  onClick={() => setIsEditPopupOpen(false)}
+                  className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                  onClick={() => resetAdd()}
                 >
-                  Cancel
+                  Reset
                 </button>
-                <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
+                <button
+                  type="submit"
+                  className="bg-blue-500 text-white px-4 py-2 rounded"
+                  disabled={isSubmittingAdd}
+                >
                   Save
                 </button>
               </div>
@@ -969,125 +794,209 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* View Popup */}
-      {isViewPopupOpen && selectedAppointment && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-1/2 relative">
-            {/* Close Button */}
+      {/* Edit Appointment Form */}
+      {isEditFormOpen && selectedAppointment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-gray-500/50"
+            onClick={() => setIsEditFormOpen(false)}
+          ></div>
+          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 max-w-4xl z-10 max-h-[90vh] overflow-y-auto">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-              onClick={() => setIsViewPopupOpen(false)}
+              onClick={() => setIsEditFormOpen(false)}
             >
               ✕
             </button>
-            <h2 className="text-xl font-bold mb-4">View Appointment</h2>
+            <h2 className="text-2xl font-bold mb-6 text-blue-500">Edit Appointment</h2>
+            <form onSubmit={handleSubmitEdit(onEditAppointment)}>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="mb-4">
+                  <label className="block mb-2">Type</label>
+                  <select
+                    {...registerEdit("appointment_type")}
+                    className={`border rounded px-4 py-2 w-full ${errorsEdit.appointment_type ? "border-red-500" : ""}`}
+                  >
+                    <option value="Meeting">Meeting</option>
+                    <option value="Project">Project</option>
+                    <option value="Program">Program</option>
+                    <option value="Demo">Demo</option>
+                    <option value="Delivery">Delivery</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Interview">Interview</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {errorsEdit.appointment_type && (
+                    <p className="text-red-600 text-sm mt-1">{errorsEdit.appointment_type.message}</p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block mb-2">Topic</label>
+                  <input
+                    type="text"
+                    {...registerEdit("topic")}
+                    className={`border rounded px-4 py-2 w-full ${errorsEdit.topic ? "border-red-500" : ""}`}
+                    placeholder="Enter topic"
+                  />
+                  {errorsEdit.topic && (
+                    <p className="text-red-600 text-sm mt-1">{errorsEdit.topic.message}</p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block mb-2">Start Date</label>
+                  <ReactDatePicker
+                    selected={watchEdit("start_date") ? new Date(watchEdit("start_date")) : null}
+                    onChange={(date) => setValueEdit("start_date", date ? format(date, "yyyy-MM-dd") : "")}
+                    dateFormat="dd/MM/yyyy"
+                    className={`border rounded px-4 py-2 w-full ${errorsEdit.start_date ? "border-red-500" : ""}`}
+                  />
+                  {errorsEdit.start_date && (
+                    <p className="text-red-600 text-sm mt-1">{errorsEdit.start_date.message}</p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block mb-2">End Date</label>
+                  <ReactDatePicker
+                    selected={watchEdit("end_date") ? new Date(watchEdit("end_date")) : null}
+                    onChange={(date) => setValueEdit("end_date", date ? format(date, "yyyy-MM-dd") : "")}
+                    dateFormat="dd/MM/yyyy"
+                    className={`border rounded px-4 py-2 w-full ${errorsEdit.end_date ? "border-red-500" : ""}`}
+                  />
+                  {errorsEdit.end_date && (
+                    <p className="text-red-600 text-sm mt-1">{errorsEdit.end_date.message}</p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block mb-2">Start Time</label>
+                  <input
+                    type="time"
+                    {...registerEdit("start_time")}
+                    className={`border rounded px-4 py-2 w-full ${errorsEdit.start_time ? "border-red-500" : ""}`}
+                  />
+                  {errorsEdit.start_time && (
+                    <p className="text-red-600 text-sm mt-1">{errorsEdit.start_time.message}</p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block mb-2">End Time</label>
+                  <input
+                    type="time"
+                    {...registerEdit("end_time")}
+                    className={`border rounded px-4 py-2 w-full ${errorsEdit.end_time ? "border-red-500" : ""}`}
+                  />
+                  {errorsEdit.end_time && (
+                    <p className="text-red-600 text-sm mt-1">{errorsEdit.end_time.message}</p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block mb-2">Status</label>
+                  <select
+                    {...registerEdit("status")}
+                    className={`border rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                  {errorsEdit.status && (
+                    <p className="text-red-600 text-sm mt-1">{errorsEdit.status.message}</p>
+                  )}
+                </div>
+
+                <div className="mb-4 col-span-2">
+                  <label className="block mb-2">Note</label>
+                  <textarea
+                    {...registerEdit("note")}
+                    className={`border rounded px-4 py-2 w-full ${errorsEdit.note ? "border-red-500" : ""}`}
+                    rows={3}
+                    placeholder="Enter note"
+                  />
+                  {errorsEdit.note && (
+                    <p className="text-red-600 text-sm mt-1">{errorsEdit.note.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                  onClick={() => setIsEditFormOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-500 text-white px-4 py-2 rounded"
+                  disabled={isSubmittingEdit}
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Appointment Dialog */}
+      {isViewDialogOpen && selectedAppointment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-gray-500/50"
+            onClick={() => setIsViewDialogOpen(false)}
+          ></div>
+          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 max-w-4xl z-10 max-h-[90vh] overflow-y-auto">
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              onClick={() => setIsViewDialogOpen(false)}
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-bold mb-6">Appointment Details</h2>
             <div className="grid grid-cols-2 gap-4">
-              {/* Row 1: Type, Topic */}
-              <div className="mb-4">
-                <label htmlFor="view-type-input" className="block text-sm font-medium text-gray-700">Type</label>
-                <input
-                  id="view-type-input"
-                  type="text"
-                  value={selectedAppointment?.appointment_type || ""}
-                  readOnly
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  title="Type"
-                  placeholder="Appointment type"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Type</label>
+                <p className="text-gray-900">{selectedAppointment.appointment_type}</p>
               </div>
-              <div className="mb-4">
-                <label htmlFor="view-topic-input" className="block text-sm font-medium text-gray-700">Topic</label>
-                <input
-                  id="view-topic-input"
-                  type="text"
-                  value={selectedAppointment?.topic || ""}
-                  readOnly
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  title="Topic"
-                  placeholder="Topic"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Topic</label>
+                <p className="text-gray-900">{selectedAppointment.topic}</p>
               </div>
-              {/* Row 2: Start Date, End Date */}
-              <div className="mb-4">
-                <label htmlFor="view-start-date-input" className="block text-sm font-medium text-gray-700">Start Date</label>
-                <input
-                  id="view-start-date-input"
-                  type="text"
-                  value={selectedAppointment?.start_date || ""}
-                  readOnly
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  title="Start Date"
-                  placeholder="Start date"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                <p className="text-gray-900">{selectedAppointment.start_date}</p>
               </div>
-              <div className="mb-4">
-                <label htmlFor="view-end-date-input" className="block text-sm font-medium text-gray-700">End Date</label>
-                <input
-                  id="view-end-date-input"
-                  type="text"
-                  value={selectedAppointment?.end_date || ""}
-                  readOnly
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  title="End Date"
-                  placeholder="End date"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700">End Date</label>
+                <p className="text-gray-900">{selectedAppointment.end_date}</p>
               </div>
-              {/* Row 3: Start Time, End Time */}
-              <div className="mb-4">
-                <label htmlFor="view-start-time-input" className="block text-sm font-medium text-gray-700">Start Time</label>
-                <input
-                  id="view-start-time-input"
-                  type="text"
-                  value={selectedAppointment?.start_time || ""}
-                  readOnly
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  title="Start Time"
-                  placeholder="Start time"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                <p className="text-gray-900">{selectedAppointment.start_time}</p>
               </div>
-              <div className="mb-4">
-                <label htmlFor="view-end-time-input" className="block text-sm font-medium text-gray-700">End Time</label>
-                <input
-                  id="view-end-time-input"
-                  type="text"
-                  value={selectedAppointment?.end_time || ""}
-                  readOnly
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  title="End Time"
-                  placeholder="End time"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700">End Time</label>
+                <p className="text-gray-900">{selectedAppointment.end_time}</p>
               </div>
-              {/* Row 4: Status, Note */}
-              <div className="mb-4">
-                <label htmlFor="view-status-input" className="block text-sm font-medium text-gray-700">Status</label>
-                <input
-                  id="view-status-input"
-                  type="text"
-                  value={selectedAppointment?.status || ""}
-                  readOnly
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  title="Status"
-                  placeholder="Status"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <p className="text-gray-900">{selectedAppointment.status}</p>
               </div>
-              <div className="mb-4">
-                <label htmlFor="view-note-input" className="block text-sm font-medium text-gray-700">Note</label>
-                <textarea
-                  id="view-note-input"
-                  title="Note"
-                  placeholder="Note"
-                  value={selectedAppointment?.note || ""}
-                  readOnly
-                  className="border rounded px-4 py-2 w-full bg-gray-100"
-                  rows={3}
-                />
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Note</label>
+                <p className="text-gray-900">{selectedAppointment.note || 'N/A'}</p>
               </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-6">
               <button
-                type="button"
                 className="bg-gray-500 text-white px-4 py-2 rounded"
-                onClick={() => setIsViewPopupOpen(false)}
+                onClick={() => setIsViewDialogOpen(false)}
               >
                 Close
               </button>
@@ -1095,8 +1004,6 @@ export default function AppointmentsPage() {
           </div>
         </div>
       )}
-
-
 
       {/* Add Host Popup */}
       {isAddHostPopupOpen && (
@@ -1364,61 +1271,6 @@ export default function AppointmentsPage() {
           </div>
         </div>
       )}
-
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
-        <div className="flex space-x-[5px]">
-          <button
-            className="px-4 py-2 rounded bg-white hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.5)]"
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
-          >
-            <FontAwesomeIcon icon={faAngleDoubleLeft} className="text-blue-900 w-6 h-6" />
-          </button>
-          <button
-            className="px-4 py-2 rounded bg-white hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.5)]"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            <FontAwesomeIcon icon={faAngleLeft} className="text-blue-900 w-6 h-6" />
-          </button>
-        </div>
-        <div className="text-gray-700">
-          Page {currentPage} of {Math.max(1, Math.ceil(totalItems / pageSize))}
-        </div>
-        <div>
-          <select
-            title="Rows per page"
-            className="border rounded px-4 py-2"
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setCurrentPage(1); // Reset to the first page when page size changes
-            }}
-          >
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-        </div>
-        <div className="flex space-x-[5px]">
-          <button
-            className="px-4 py-2 rounded bg-white hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.5)]"
-            onClick={() => setCurrentPage((prev) => prev + 1)}
-            disabled={currentPage === Math.ceil(totalItems / pageSize)}
-          >
-            <FontAwesomeIcon icon={faAngleRight} className="text-blue-900 w-6 h-6" />
-          </button>
-          <button
-            className="px-4 py-2 rounded bg-white hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.5)]"
-            onClick={() => setCurrentPage(Math.ceil(totalItems / pageSize))}
-            disabled={currentPage === Math.ceil(totalItems / pageSize)}
-          >
-            <FontAwesomeIcon icon={faAngleDoubleRight} className="text-blue-900 w-6 h-6" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

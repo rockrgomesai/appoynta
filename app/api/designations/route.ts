@@ -5,7 +5,7 @@ import { authenticate } from '@/lib/auth';
 import { authorize } from '@/lib/permissions';
 import { designations } from '@/db/schema';
 import { z, ZodError } from 'zod';
-import { sql } from 'drizzle-orm';
+import { sql, asc, desc } from 'drizzle-orm';
 
 // Zod schema for creating a designation
 const createDesignationSchema = z.object({
@@ -19,46 +19,87 @@ const getDesignationsSchema = z.object({
   status: z.enum(['Active', 'Inactive']).optional(),
   page: z.string().regex(/^\d+$/).transform(Number).default('1'),
   pageSize: z.string().regex(/^\d+$/).transform(Number).default('10'),
+  sortColumn: z.string().optional().default('id'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
 export async function GET(req: Request) {
-  const user = await authenticate(req);
-  await authorize(user, 'view:designations');
+  try {
+    // Extract and verify Bearer token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  // Parse and validate query parameters
-  const { searchParams } = new URL(req.url);
-  const queryParams = Object.fromEntries(searchParams.entries());
-  const { search, status, page, pageSize } = getDesignationsSchema.parse(queryParams);
+    const user = await authenticate(req);
+    await authorize(user, 'view:designations');
 
-  // Build the where condition dynamically
-  const where: any[] = [];
-  if (search) {
-    where.push(sql`${designations.designation} ILIKE ${'%' + search + '%'}`);
+    // Parse and validate query parameters
+    const { searchParams } = new URL(req.url);
+    const queryParams = Object.fromEntries(searchParams.entries());
+    const { search, status, page, pageSize, sortColumn, sortOrder } = getDesignationsSchema.parse(queryParams);
+
+    // Validate sortColumn to prevent SQL injection
+    const allowedColumns = ['id', 'designation', 'status'];
+    const column = allowedColumns.includes(sortColumn) ? sortColumn : 'id';
+
+    // Build the where condition dynamically
+    const where: any[] = [];
+    if (search) {
+      where.push(sql`${designations.designation} ILIKE ${'%' + search + '%'}`);
+    }
+    if (status) {
+      where.push(sql`${designations.status} = ${status}`);
+    }
+
+    // Combine all conditions with AND, or use TRUE if no conditions are provided
+    const whereCondition = where.length > 0 ? sql.join(where, sql` AND `) : sql`TRUE`;
+
+    // Build order by clause
+    let orderBy;
+    if (column === 'id') {
+      orderBy = sortOrder === 'asc' ? asc(designations.id) : desc(designations.id);
+    } else if (column === 'designation') {
+      orderBy = sortOrder === 'asc' ? asc(designations.designation) : desc(designations.designation);
+    } else if (column === 'status') {
+      orderBy = sortOrder === 'asc' ? asc(designations.status) : desc(designations.status);
+    } else {
+      orderBy = desc(designations.id); // fallback
+    }
+
+    // Fetch data and total count in parallel
+    const [data, total] = await Promise.all([
+      db.select({ id: designations.id, designation: designations.designation, status: designations.status })
+        .from(designations)
+        .where(whereCondition)
+        .orderBy(orderBy)
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db
+        .select({ count: sql`COUNT(${designations.id})` })
+        .from(designations)
+        .where(whereCondition)
+        .then((result) => Number(result[0]?.count || 0)),
+    ]);
+
+    return NextResponse.json({ data, total, page, pageSize });
+  } catch (error) {
+    console.error('Error fetching designations:', error);
+    return NextResponse.json({ error: 'Failed to fetch designations' }, { status: 500 });
   }
-  if (status) {
-    where.push(sql`${designations.status} = ${status}`);
-  }
-
-  // Combine all conditions with AND, or use TRUE if no conditions are provided
-  const whereCondition = where.length > 0 ? sql.join(where, sql` AND `) : sql`TRUE`;
-
-  const [data, total] = await Promise.all([
-    db.select().from(designations).where(whereCondition).limit(pageSize).offset((page - 1) * pageSize),
-    db
-      .select({ count: sql`COUNT(${designations.id})` })
-      .from(designations)
-      .where(whereCondition)
-      .then((r) => Number(r[0].count)),
-  ]);
-
-  return NextResponse.json({ data, total, page, pageSize });
 }
 
 export async function POST(req: Request) {
-  const user = await authenticate(req);
-  await authorize(user, 'create:designations');
-
   try {
+    // Extract and verify Bearer token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await authenticate(req);
+    await authorize(user, 'create:designations');
+
     // Parse and validate the request body
     const parsed = createDesignationSchema.parse(await req.json());
 

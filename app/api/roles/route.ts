@@ -1,5 +1,5 @@
 // app/api/roles/route.ts
-import { sql } from 'drizzle-orm';
+import { sql, asc, desc } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { roles } from '@/db/schema';
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     const token = authHeader.split(' ')[1];
     try {
-      jwt.verify(token, process.env.JWT_SECRET!); // Verify the token
+      jwt.verify(token, process.env.JWT_SECRET!);
     } catch (error) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -23,29 +23,43 @@ export async function GET(req: Request) {
     // Parse query parameters
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10)); // Ensure page is at least 1
-    const pageSize = Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10)); // Ensure pageSize is at least 1
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSize = Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10));
+    const sortColumn = searchParams.get('sortColumn') || 'id'; // Default to 'id'
+    const sortOrder = searchParams.get('sortOrder') || 'desc'; // Default to 'desc'
+
+    // Validate sortColumn to prevent SQL injection
+    const allowedColumns = ['id', 'name'];
+    const column = allowedColumns.includes(sortColumn) ? sortColumn : 'id';
 
     // Build the query filter
     const whereCond = search
-      ? sql`${roles.name} ILIKE ${`%${search}%`}` // Use ILIKE for case-insensitive search
-      : sql`TRUE`; // Always true condition for no filter
+      ? sql`${roles.name} ILIKE ${`%${search}%`}`
+      : sql`TRUE`;
+
+    // Build order by clause - ensure we're using the roles table columns
+    let orderBy;
+    if (column === 'id') {
+      orderBy = sortOrder === 'asc' ? asc(roles.id) : desc(roles.id);
+    } else {
+      orderBy = sortOrder === 'asc' ? asc(roles.name) : desc(roles.name);
+    }
 
     // Fetch data and total count in parallel
     const [data, total] = await Promise.all([
-      db.select({ id: roles.id, name: roles.name }) // Select only id and name
+      db.select({ id: roles.id, name: roles.name })
         .from(roles)
         .where(whereCond)
+        .orderBy(orderBy)
         .limit(pageSize)
         .offset((page - 1) * pageSize),
       db
         .select({ count: sql`COUNT(${roles.id})` })
         .from(roles)
         .where(whereCond)
-        .then((result) => Number(result[0]?.count || 0)), // Handle cases where count might be undefined
+        .then((result) => Number(result[0]?.count || 0)),
     ]);
 
-    // Return the response
     return NextResponse.json({ data, total, page, pageSize });
   } catch (error) {
     console.error('Error fetching roles:', error);

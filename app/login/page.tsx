@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -27,6 +27,7 @@ type User = {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -52,7 +53,8 @@ export default function LoginPage() {
 
       // Redirect to the dashboard
       toast.success("Login successful!"); // Show success message
-      router.push("/main");
+      const redirect = searchParams.get("redirect");
+      router.replace(redirect || "/main");
     } catch (error: any) {
       console.error("Login failed:", error);
 
@@ -80,11 +82,18 @@ export default function LoginPage() {
     }
   };
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      // If token exists, fetch users or redirect to the desired page
+      fetchUsers();
+    }
+  }, [currentPage, pageSize, searchTerm]);
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       {/* Toaster Component */}
-      
-
+      <Toaster position="top-right" />
       <div className="w-full max-w-md p-8 bg-white rounded shadow-md">
         <h2 className="mb-6 text-2xl font-bold text-center">Login</h2>
         {error && <p className="mb-4 text-sm text-red-500">{error}</p>}

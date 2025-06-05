@@ -21,8 +21,6 @@ import VisitorsTable from "@/components/visitors/VisitorsTable";
 import Pagination from "@/components/visitors/Pagination";
 import VisitorFormModal from "@/components/visitors/VisitorFormModal";
 import VisitorViewModal from "@/components/visitors/VisitorViewModal";
-
-
 import ClientFaceCapture from '@/components/visitors/ClientFaceCapture';
 
 function VisitorPage() {
@@ -41,8 +39,8 @@ function VisitorPage() {
   const [isWebcamOpen, setIsWebcamOpen] = useState(false);
   const [activeVisitor, setActiveVisitor] = useState<Visitor | null>(null);
   const [isFaceCaptureOpen, setIsFaceCaptureOpen] = useState(false);
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortColumn, setSortColumn] = useState<string | null>("id"); // Default to "id"
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc"); // Default to "desc" for newest first
 
   // Fetch visitors
   const fetchVisitors = async () => {
@@ -72,9 +70,15 @@ function VisitorPage() {
   const handleAddVisitor = async (visitorData: Omit<Visitor, "id">) => {
     try {
       await axiosInstance.post("/visitors", visitorData);
+      toast.success("Visitor added successfully");
+      
+      // Reset to first page and ensure proper sorting for new records
+      setCurrentPage(1);
+      setSortColumn("id");
+      setSortOrder("desc");
+      
       fetchVisitors();
       setIsAddFormOpen(false);
-      toast.success("Visitor added successfully");
     } catch (error: any) {
       toast.error(error?.response?.data?.error || "Failed to add visitor");
       console.error("Failed to add visitor:", error);
@@ -118,16 +122,12 @@ function VisitorPage() {
     if (!faceVisitor) return;
     setIsUploading(true);
     try {
-      // Generate a unique filename
       const fileName = `visitor_${faceVisitor.id}_${Date.now()}.png`;
-      // Upload to /public/images (simulate via API route or direct upload if available)
       const formData = new FormData();
       formData.append("file", imageBlob, fileName);
-      // You may need to implement an API route to handle this upload
       await axiosInstance.post("/desk/images", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      // Update visitor record
       await axiosInstance.patch(`/visitors/${faceVisitor.id}`, { image_pp: fileName });
       toast.success("Photo saved and visitor updated!");
       fetchVisitors();
@@ -147,9 +147,7 @@ function VisitorPage() {
   };
 
   function handlePhotoCapture(image: string): void {
-    // Convert base64 image string to Blob and save the photo for the active visitor
     if (!activeVisitor) return;
-    // Convert base64 to Blob
     fetch(image)
       .then(res => res.blob())
       .then(blob => {
@@ -168,10 +166,8 @@ function VisitorPage() {
     }
 
     try {
-      // Dynamically import face-api.js in the browser
       const faceapi = await import('@vladmandic/face-api');
 
-      // First, save the image file
       const imageFormData = new FormData();
       imageFormData.append('file', blob, `visitor_${activeVisitor.id}_${Date.now()}.jpg`);
       imageFormData.append('visitorId', activeVisitor.id!.toString());
@@ -188,12 +184,8 @@ function VisitorPage() {
 
       const { imagePath } = await imageResponse.data;
 
-      // Then, get and save the face descriptor
       const faceFormData = new FormData();
-      // TODO: Replace the following line with the actual descriptor array from your face recognition logic
-      // Create an image from the blob and use it for face detection
       const imageBitmap = await createImageBitmap(blob);
-      // Draw ImageBitmap onto a canvas
       const canvas = document.createElement('canvas');
       canvas.width = imageBitmap.width;
       canvas.height = imageBitmap.height;
@@ -203,14 +195,13 @@ function VisitorPage() {
         return;
       }
       ctx.drawImage(imageBitmap, 0, 0);
-      // Now use the canvas as input for faceapi
       const detectionOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
       const detection = await faceapi.detectSingleFace(canvas, detectionOptions).withFaceLandmarks().withFaceDescriptor();
       if (!detection) {
         toast.error("No face detected!");
         return;
       }
-      const descriptorArray = Array.from(detection.descriptor); // This should be 128 floats
+      const descriptorArray = Array.from(detection.descriptor);
       faceFormData.append('descriptor', JSON.stringify(descriptorArray));
       faceFormData.append('image', blob);
       if (activeVisitor.id === undefined || activeVisitor.id === null) {
@@ -221,14 +212,13 @@ function VisitorPage() {
 
       await axiosInstance.post('/desk/face', faceFormData);
 
-      // Update visitor record with new image path
       await axiosInstance.patch(`/visitors/${activeVisitor.id}`, {
         image_pp: imagePath
       });
 
       toast.success('Photo and face descriptor saved successfully');
       setIsFaceCaptureOpen(false);
-      fetchVisitors(); // Refresh the visitors list
+      fetchVisitors();
     } catch (error) {
       console.error('Error saving photo:', error);
       toast.error('Failed to save photo and face descriptor');
@@ -253,7 +243,7 @@ function VisitorPage() {
         <div className="flex items-center space-x-4">
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search visitors..."
             className="border rounded px-4 py-2"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -261,7 +251,7 @@ function VisitorPage() {
           <button
             type="button"
             title="Add Visitor"
-            className="bg-blue-500 text-white px-4 py-2 rounded"
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
             onClick={() => setIsAddFormOpen(true)}
           >
             + Add

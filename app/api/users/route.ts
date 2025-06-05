@@ -31,8 +31,27 @@ export async function GET(req: Request) {
     // Parse query parameters
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10)); // Ensure page is at least 1
-    const pageSize = Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10)); // Ensure pageSize is at least 1
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSize = Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10));
+
+    // --- Sorting support ---
+    const allowedSortColumns: Record<string, any> = {
+      id: users.id,
+      first_name: users.first_name,
+      last_name: users.last_name,
+      username: users.username,
+      email: users.email,
+      telephone: users.telephone,
+      status: users.status,
+      role_id: roles.id,
+      role_name: roles.name,
+      department: departments.department,
+      designation: designations.designation,
+    };
+    // Default to id DESC so new records show on top
+    const sortColumn = searchParams.get('sortColumn') || 'id';
+    const sortOrder = (searchParams.get('sortOrder') || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const sortExpr = allowedSortColumns[sortColumn] || users.id;
 
     // Build the query filter
     const whereCond = sql`${users.status} = 'Active' AND (${
@@ -53,27 +72,27 @@ export async function GET(req: Request) {
           telephone: users.telephone,
           status: users.status,
           role_id: roles.id,
-          role_name: roles.name, // Include role name
-          department_id: departments.id, // Include department_id
-          department: departments.department, // Use departments.department
-          designation_id: designations.id, // Include designation_id
-          designation: designations.designation, // Use designations.designation
+          role_name: roles.name,
+          department_id: departments.id,
+          department: departments.department,
+          designation_id: designations.id,
+          designation: designations.designation,
         })
         .from(users)
-        .leftJoin(roles, sql`${users.role_id} = ${roles.id}`) // Join users with roles
-        .leftJoin(departments, sql`${users.department_id} = ${departments.id}`) // Join users with departments
-        .leftJoin(designations, sql`${users.designation_id} = ${designations.id}`) // Join users with designations
+        .leftJoin(roles, sql`${users.role_id} = ${roles.id}`)
+        .leftJoin(departments, sql`${users.department_id} = ${departments.id}`)
+        .leftJoin(designations, sql`${users.designation_id} = ${designations.id}`)
         .where(whereCond)
-        .orderBy(sql`${users.id} DESC`)
+        .orderBy(sortOrder === 'asc' ? sql`${sortExpr} ASC` : sql`${sortExpr} DESC`)
         .limit(pageSize)
         .offset((page - 1) * pageSize),
       db
         .select({ count: sql`COUNT(${users.id})` })
         .from(users)
-        .leftJoin(departments, sql`${users.department_id} = ${departments.id}`) // Ensure consistent filtering
+        .leftJoin(departments, sql`${users.department_id} = ${departments.id}`)
         .leftJoin(designations, sql`${users.designation_id} = ${designations.id}`)
         .where(whereCond)
-        .then((result) => Number(result[0]?.count || 0)), // Handle cases where count might be undefined
+        .then((result) => Number(result[0]?.count || 0)),
     ]);
 
     // Return the response

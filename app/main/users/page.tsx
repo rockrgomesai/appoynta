@@ -4,7 +4,45 @@ import { useState, useEffect } from "react";
 import axiosInstance from "@/lib/axios";
 import { User } from "@/types/User";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faRemove, faEye, faAngleDoubleLeft, faAngleLeft, faAngleRight, faAngleDoubleRight } from "@fortawesome/free-solid-svg-icons";
+import { 
+  faEdit, 
+  faRemove, 
+  faEye, 
+  faAngleDoubleLeft, 
+  faAngleLeft, 
+  faAngleRight, 
+  faAngleDoubleRight,
+  faSort,
+  faSortUp,
+  faSortDown
+} from "@fortawesome/free-solid-svg-icons";
+import { toast } from "react-hot-toast";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+// Zod schema for user validation
+const userSchema = z.object({
+  first_name: z.string().min(2, "First name is required").max(50, "First name too long"),
+  last_name: z.string().max(50, "Last name too long").optional().or(z.literal("")),
+  username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username too long"),
+  password: z.string().min(6, "Password must be at least 6 characters").optional().or(z.literal("")),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  telephone: z.string().min(11, "Phone number must be at least 11 characters").max(15, "Phone number too long"),
+  department_id: z.string().min(1, "Please select a department"),
+  designation_id: z.string().min(1, "Please select a designation"),
+  role_id: z.string().min(1, "Please select a role"),
+  status: z.enum(["Active", "Inactive"], { required_error: "Status is required" }),
+});
+
+const userAddSchema = userSchema.extend({
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const userEditSchema = userSchema.omit({ password: true });
+
+type UserAddForm = z.infer<typeof userAddSchema>;
+type UserEditForm = z.infer<typeof userEditSchema>;
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -19,48 +57,96 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
-  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
-  const [optionsLoading, setOptionsLoading] = useState(false); // Add loading state
+  const [sortColumn, setSortColumn] = useState<string | null>("id");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [optionsLoading, setOptionsLoading] = useState(false);
+
+  // Add User Form
+  const {
+    register: registerAdd,
+    handleSubmit: handleSubmitAdd,
+    reset: resetAdd,
+    formState: { errors: errorsAdd, isSubmitting: isSubmittingAdd },
+  } = useForm<UserAddForm>({
+    resolver: zodResolver(userAddSchema),
+    defaultValues: {
+      first_name: "",
+      last_name: "",
+      username: "",
+      password: "",
+      email: "",
+      telephone: "",
+      department_id: "",
+      designation_id: "",
+      role_id: "",
+      status: "Active",
+    },
+  });
+
+  // Edit User Form
+  const {
+    register: registerEdit,
+    handleSubmit: handleSubmitEdit,
+    reset: resetEdit,
+    formState: { errors: errorsEdit, isSubmitting: isSubmittingEdit },
+  } = useForm<UserEditForm>({
+    resolver: zodResolver(userEditSchema),
+    defaultValues: {
+      first_name: "",
+      last_name: "",
+      username: "",
+      email: "",
+      telephone: "",
+      department_id: "",
+      designation_id: "",
+      role_id: "",
+      status: "Active",
+    } as any, // Type assertion to allow string defaults for select fields
+  });
 
   // Fetch users
   const fetchUsers = async () => {
     try {
       const response = await axiosInstance.get("/users", {
-        params: { page: currentPage, pageSize, search: searchTerm, orderBy: "id", order: "desc" },
+        params: { 
+          page: currentPage, 
+          pageSize, 
+          search: searchTerm, 
+          sortColumn: sortColumn || "id", 
+          sortOrder: sortOrder || "desc" 
+        },
       });
       setUsers(response.data.data);
       setTotalItems(response.data.total);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch users:", error);
+      toast.error(error?.response?.data?.error || "Failed to fetch users");
     }
   };
 
   // Fetch active departments, designations, and roles
   const fetchOptions = async () => {
-    setOptionsLoading(true); // Set loading to true
+    setOptionsLoading(true);
     try {
-      console.log("Fetching options...");
       const [departmentsResponse, designationsResponse, rolesResponse] = await Promise.all([
-        axiosInstance.get("/departments", { params: { state: "Active" } }),
-        axiosInstance.get("/designations", { params: { state: "Active" } }),
-        axiosInstance.get("/roles", { params: { state: "Active" } }),
+        axiosInstance.get("/departments", { params: { status: "Active" } }),
+        axiosInstance.get("/designations", { params: { status: "Active" } }),
+        axiosInstance.get("/roles", { params: { status: "Active" } }),
       ]);
-      setDepartments(departmentsResponse.data.data);
-      setDesignations(designationsResponse.data.data);
-      setRoles(rolesResponse.data.data);
-      console.log("Departments:", departmentsResponse.data.data);
-      console.log("Designations:", designationsResponse.data.data);
-      console.log("Roles:", rolesResponse.data.data);
+      setDepartments(departmentsResponse.data.data || []);
+      setDesignations(designationsResponse.data.data || []);
+      setRoles(rolesResponse.data.data || []);
     } catch (error) {
       console.error("Failed to fetch options:", error);
+      toast.error("Failed to fetch form options");
     } finally {
-      setOptionsLoading(false); // Set loading to false
+      setOptionsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, pageSize, searchTerm]);
+  }, [currentPage, pageSize, searchTerm, sortColumn, sortOrder]);
 
   useEffect(() => {
     if (isAddFormOpen || isEditFormOpen) {
@@ -68,38 +154,109 @@ export default function UsersPage() {
     }
   }, [isAddFormOpen, isEditFormOpen]);
 
+  // Handle sorting
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortOrder("asc");
+    }
+  };
+
+  // Get sort icon
+  const getSortIcon = (column: string) => {
+    if (sortColumn !== column) {
+      return <FontAwesomeIcon icon={faSort} className="ml-1 text-gray-400" />;
+    }
+    return sortOrder === "asc" 
+      ? <FontAwesomeIcon icon={faSortUp} className="ml-1 text-blue-600" />
+      : <FontAwesomeIcon icon={faSortDown} className="ml-1 text-blue-600" />;
+  };
+
   // Handle Add User
-  const handleAddUser = async (userData: Omit<User, "id">) => {
+  const onAddUser = async (data: UserAddForm) => {
     try {
-      await axiosInstance.post("/users", userData);
-      fetchUsers();
+      // Convert string IDs to numbers before sending to backend
+      const payload = {
+        ...data,
+        department_id: parseInt(data.department_id, 10),
+        designation_id: parseInt(data.designation_id, 10),
+        role_id: parseInt(data.role_id, 10),
+      };
+      await axiosInstance.post("/users", payload);
       setIsAddFormOpen(false);
-    } catch (error) {
-      console.error("Failed to add user:", error);
+      resetAdd({
+        first_name: "",
+        last_name: "",
+        username: "",
+        password: "",
+        email: "",
+        telephone: "",
+        department_id: "",
+        designation_id: "",
+        role_id: "",
+        status: "Active",
+      });
+      toast.success("User added successfully!");
+      
+      // Reset to first page and ensure proper sorting for new records
+      setCurrentPage(1);
+      setSortColumn("id");
+      setSortOrder("desc");
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to add user.");
     }
   };
 
   // Handle Edit User
-  const handleEditUser = async (userData: User) => {
+  const onEditUser = async (data: UserEditForm) => {
     try {
-      await axiosInstance.patch(`/users/${userData.id}`, userData);
-      fetchUsers();
+      if (!selectedUser) return;
+      const payload = {
+        ...data,
+        department_id: parseInt(data.department_id, 10),
+        designation_id: parseInt(data.designation_id, 10),
+        role_id: parseInt(data.role_id, 10),
+      };
+      await axiosInstance.patch(`/users/${selectedUser.id}`, payload);
       setIsEditFormOpen(false);
-    } catch (error) {
-      console.error("Failed to edit user:", error);
+      setSelectedUser(null);
+      toast.success("User updated successfully!");
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to update user.");
     }
   };
 
   // Handle Delete User
   const handleDeleteUser = async (userId: number) => {
-    if (confirm("Are you sure you want to delete this user?")) {
-      try {
-        await axiosInstance.delete(`/users/${userId}`);
-        fetchUsers();
-      } catch (error) {
-        console.error("Failed to delete user:", error);
-      }
+    try {
+      await axiosInstance.delete(`/users/${userId}`);
+      toast.success("User deleted successfully!");
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to delete user.");
     }
+  };
+
+  // Open Edit Form
+  const openEditForm = (user: User) => {
+    setSelectedUser(user);
+    resetEdit({
+      first_name: user.first_name,
+      last_name: user.last_name || "",
+      username: user.username,
+      email: user.email || "",
+      telephone: user.telephone,
+      department_id: user.department_id ? String(user.department_id) : "",
+      designation_id: user.designation_id ? String(user.designation_id) : "",
+      role_id: user.role_id ? String(user.role_id) : "",
+      status: user.status as "Active" | "Inactive",
+    });
+    setIsEditFormOpen(true);
   };
 
   return (
@@ -110,13 +267,13 @@ export default function UsersPage() {
         <div className="flex items-center space-x-4">
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search users..."
             className="border rounded px-4 py-2"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <button
-            className="bg-blue-500 text-white px-4 py-2 rounded"
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
             onClick={() => setIsAddFormOpen(true)}
           >
             + Add
@@ -128,15 +285,60 @@ export default function UsersPage() {
       <table className="w-full border-collapse border border-gray-300">
         <thead>
           <tr className="bg-gray-200 text-gray-700">
-            <th className="border border-gray-300 px-4 py-2">First Name</th>
-            <th className="border border-gray-300 px-4 py-2">Last Name</th>
-            <th className="border border-gray-300 px-4 py-2">Username</th>
-            <th className="border border-gray-300 px-4 py-2">Email</th>
-            <th className="border border-gray-300 px-4 py-2">Telephone</th>
-            <th className="border border-gray-300 px-4 py-2">Department</th>
-            <th className="border border-gray-300 px-4 py-2">Designation</th>
-            <th className="border border-gray-300 px-4 py-2">Role</th>
-            <th className="border border-gray-300 px-4 py-2">Status</th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("first_name")}
+            >
+              First Name {getSortIcon("first_name")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("last_name")}
+            >
+              Last Name {getSortIcon("last_name")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("username")}
+            >
+              Username {getSortIcon("username")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("email")}
+            >
+              Email {getSortIcon("email")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("telephone")}
+            >
+              Telephone {getSortIcon("telephone")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("department")}
+            >
+              Department {getSortIcon("department")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("designation")}
+            >
+              Designation {getSortIcon("designation")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("role_name")}
+            >
+              Role {getSortIcon("role_name")}
+            </th>
+            <th 
+              className="border border-gray-300 px-4 py-2 cursor-pointer"
+              onClick={() => handleSort("status")}
+            >
+              Status {getSortIcon("status")}
+            </th>
             <th className="border border-gray-300 px-4 py-2">Actions</th>
           </tr>
         </thead>
@@ -155,31 +357,35 @@ export default function UsersPage() {
                 <td className="border border-gray-300 px-4 py-2">{user.department || "-"}</td>
                 <td className="border border-gray-300 px-4 py-2">{user.designation || "-"}</td>
                 <td className="border border-gray-300 px-4 py-2">{user.role_name}</td>
-                <td className="border border-gray-300 px-4 py-2">{user.status}</td>
                 <td className="border border-gray-300 px-4 py-2">
+                  <span className="px-2 py-1 rounded text-sm">
+                    {user.status}
+                  </span>
+                </td>
+                <td className="border border-gray-300 px-4 py-2 text-left">
                   <button
                     className="text-blue-500 hover:underline mr-2"
                     onClick={() => {
-                      setSelectedUser(user); // Set the selected user
-                      setIsViewDialogOpen(true); // Open the View Dialog
+                      setSelectedUser(user);
+                      setIsViewDialogOpen(true);
                     }}
+                    title="View"
                   >
-                    <FontAwesomeIcon icon={faEye} className="text-blue-500 w-5 h-5" />
+                    <FontAwesomeIcon icon={faEye} className="w-5 h-5" />
                   </button>
                   <button
                     className="text-green-500 hover:underline mr-2"
-                    onClick={() => {
-                      setSelectedUser(user); // Set the selected user
-                      setIsEditFormOpen(true); // Open the Edit Form
-                    }}
+                    onClick={() => openEditForm(user)}
+                    title="Edit"
                   >
-                    <FontAwesomeIcon icon={faEdit} className="text-green-500 w-5 h-5" />
+                    <FontAwesomeIcon icon={faEdit} className="w-5 h-5" />
                   </button>
                   <button
                     className="text-red-500 hover:underline"
                     onClick={() => handleDeleteUser(user.id!)}
+                    title="Delete"
                   >
-                    <FontAwesomeIcon icon={faRemove} className="text-red-500 w-5 h-5" />
+                    <FontAwesomeIcon icon={faRemove} className="w-5 h-5" />
                   </button>
                 </td>
               </tr>
@@ -198,29 +404,31 @@ export default function UsersPage() {
       <div className="flex justify-between items-center mt-4">
         <div>
           <button
-            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition"
+            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             onClick={() => setCurrentPage(1)}
             disabled={currentPage === 1}
           >
             <FontAwesomeIcon icon={faAngleDoubleLeft} className="text-blue-900 w-6 h-6" />
           </button>
           <button
-            className="px-4 py-2 rounded hover:bg-gray-200 transition"
+            className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
           >
             <FontAwesomeIcon icon={faAngleLeft} className="text-blue-900 w-6 h-6" />
           </button>
         </div>
-        <div className="text-gray-700">
-          Page {currentPage} of {Math.ceil(totalItems / pageSize)}
-        </div>
-        <div>
+        <div className="text-gray-700 flex items-center space-x-2">
+          <span>
+            Page {currentPage} of {Math.ceil(totalItems / pageSize)}
+          </span>
           <select
-            className="border rounded px-4 py-2"
+            className="border rounded px-4 py-2 shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            title="Select number of users per page"
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
@@ -230,14 +438,14 @@ export default function UsersPage() {
         </div>
         <div>
           <button
-            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition"
+            className="px-4 py-2 rounded mr-2 hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             onClick={() => setCurrentPage((prev) => prev + 1)}
             disabled={currentPage === Math.ceil(totalItems / pageSize)}
           >
             <FontAwesomeIcon icon={faAngleRight} className="text-blue-900 w-6 h-6" />
           </button>
           <button
-            className="px-4 py-2 rounded hover:bg-gray-200 transition"
+            className="px-4 py-2 rounded hover:bg-gray-200 transition shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             onClick={() => setCurrentPage(Math.ceil(totalItems / pageSize))}
             disabled={currentPage === Math.ceil(totalItems / pageSize)}
           >
@@ -253,186 +461,178 @@ export default function UsersPage() {
             className="absolute inset-0 bg-gray-500/50"
             onClick={() => setIsAddFormOpen(false)}
           ></div>
-
-          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 z-10">
+          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 max-w-6xl z-10 max-h-[90vh] overflow-y-auto">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsAddFormOpen(false)}
             >
               ✕
             </button>
-
-            <h2 className="text-2xl font-bold mb-6">Add User</h2>
+            <h2 className="text-2xl font-bold mb-6 text-blue-500">Add User</h2>
             {optionsLoading ? (
               <div className="text-center py-8">Loading options...</div>
             ) : (
-              <form
-                autoComplete="off"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setFormErrors({});
-                  const form = e.target as HTMLFormElement;
-                  const formData = new FormData(form);
-                  const userData = Object.fromEntries(formData.entries());
-                  if (!userData.telephone || (userData.telephone as string).length < 11) {
-                    setFormErrors({ telephone: 'Phone number must be at least 11 characters.' });
-                    return;
-                  }
-                  handleAddUser({
-                    first_name: userData.first_name as string,
-                    last_name: userData.last_name as string,
-                    username: userData.username as string,
-                    password: userData.password as string,
-                    email: userData.email as string,
-                    telephone: userData.telephone as string,
-                    department_id: parseInt(userData.department_id as string, 10),
-                    designation_id: parseInt(userData.designation_id as string, 10),
-                    role_id: parseInt(userData.role_id as string, 10),
-                    status: userData.status as "Active" | "Inactive",
-                  });
-                }}
-              >
+              <form onSubmit={handleSubmitAdd(onAddUser)}>
                 <div className="grid grid-cols-3 gap-6">
                   <div className="mb-4">
                     <label className="block mb-2">First Name</label>
                     <input
                       type="text"
-                      name="first_name"
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Enter the user's first name"
+                      {...registerAdd("first_name")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.first_name ? "border-red-500" : ""}`}
                       placeholder="Enter first name"
                     />
+                    {errorsAdd.first_name && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.first_name.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Last Name</label>
                     <input
                       type="text"
-                      name="last_name"
-                      className="border rounded px-4 py-2 w-full"
-                      title="Enter the user's last name"
+                      {...registerAdd("last_name")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.last_name ? "border-red-500" : ""}`}
                       placeholder="Enter last name"
                     />
+                    {errorsAdd.last_name && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.last_name.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Username</label>
                     <input
                       type="text"
-                      name="username"
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      autoComplete="username"
-                      title="Enter a unique username for the user"
+                      {...registerAdd("username")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.username ? "border-red-500" : ""}`}
                       placeholder="Enter username"
+                      autoComplete="username"
                     />
+                    {errorsAdd.username && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.username.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Password</label>
                     <input
                       type="password"
-                      name="password"
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      autoComplete="new-password"
-                      title="Enter a secure password for the user"
+                      {...registerAdd("password")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.password ? "border-red-500" : ""}`}
                       placeholder="Enter password"
+                      autoComplete="new-password"
                     />
+                    {errorsAdd.password && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.password.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Email</label>
                     <input
                       type="email"
-                      name="email"
-                      className="border rounded px-4 py-2 w-full"
-                      title="Enter the user's email address"
+                      {...registerAdd("email")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.email ? "border-red-500" : ""}`}
                       placeholder="Enter email"
                     />
+                    {errorsAdd.email && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.email.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Telephone</label>
                     <input
                       type="text"
-                      name="telephone"
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Enter the user's telephone number"
+                      {...registerAdd("telephone")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.telephone ? "border-red-500" : ""}`}
                       placeholder="Enter telephone"
                     />
-                    {formErrors.telephone && (
-                      <div className="text-red-600 text-sm mt-1">{formErrors.telephone}</div>
+                    {errorsAdd.telephone && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.telephone.message}</p>
                     )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Department</label>
                     <select
-                      name="department_id"
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Select the user's department"
+                      {...registerAdd("department_id")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.department_id ? "border-red-500" : ""}`}
                     >
                       <option value="">Select a Department</option>
                       {departments.map((department) => (
-                        <option key={department.id} value={department.id}>
-                          {department.department}
-                        </option>
+                        <option key={department.id} value={department.id.toString()}>{department.department}</option>
                       ))}
                     </select>
+                    {errorsAdd.department_id && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.department_id.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Designation</label>
                     <select
-                      name="designation_id"
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Select the user's designation"
+                      {...registerAdd("designation_id")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.designation_id ? "border-red-500" : ""}`}
                     >
                       <option value="">Select a Designation</option>
                       {designations.map((designation) => (
-                        <option key={designation.id} value={designation.id}>
+                        <option key={designation.id} value={designation.id.toString()}>
                           {designation.designation}
                         </option>
                       ))}
                     </select>
+                    {errorsAdd.designation_id && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.designation_id.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Role</label>
                     <select
-                      name="role_id"
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Select the user's role"
+                      {...registerAdd("role_id")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.role_id ? "border-red-500" : ""}`}
                     >
                       <option value="">Select a Role</option>
                       {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
+                        <option key={role.id} value={role.id.toString()}>
                           {role.name}
                         </option>
                       ))}
                     </select>
+                    {errorsAdd.role_id && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.role_id.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Status</label>
                     <select
-                      name="status"
-                      className="border rounded px-4 py-2 w-full"
-                      defaultValue="Active"
-                      title="Select the user's status"
+                      {...registerAdd("status")}
+                      className={`border rounded px-4 py-2 w-full ${errorsAdd.status ? "border-red-500" : ""}`}
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                     </select>
+                    {errorsAdd.status && (
+                      <p className="text-red-600 text-sm mt-1">{errorsAdd.status.message}</p>
+                    )}
                   </div>
                 </div>
+
                 <div className="flex justify-end">
                   <button
-                    type="reset"
+                    type="button"
                     className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                    onClick={() => resetAdd()}
                   >
                     Reset
                   </button>
                   <button
                     type="submit"
                     className="bg-blue-500 text-white px-4 py-2 rounded"
+                    disabled={isSubmittingAdd}
                   >
                     Save
                   </button>
@@ -450,181 +650,166 @@ export default function UsersPage() {
             className="absolute inset-0 bg-gray-500/50"
             onClick={() => setIsEditFormOpen(false)}
           ></div>
-
-          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 z-10">
+          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 max-w-6xl z-10 max-h-[90vh] overflow-y-auto">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsEditFormOpen(false)}
             >
               ✕
             </button>
-
-            <h2 className="text-2xl font-bold mb-6">Edit User</h2>
+            <h2 className="text-2xl font-bold mb-6 text-blue-500">Edit User</h2>
             {optionsLoading ? (
               <div className="text-center py-8">Loading options...</div>
             ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setFormErrors({});
-                  const form = e.target as HTMLFormElement;
-                  const formData = new FormData(form);
-                  const userData = Object.fromEntries(formData.entries());
-                  if (!userData.telephone || (userData.telephone as string).length < 11) {
-                    setFormErrors({ telephone: 'Phone number must be at least 11 characters.' });
-                    return;
-                  }
-                  handleEditUser({
-                    id: selectedUser.id,
-                    first_name: userData.first_name as string,
-                    last_name: userData.last_name as string,
-                    username: userData.username as string,
-                    email: userData.email as string,
-                    telephone: userData.telephone as string,
-                    department_id: parseInt(userData.department_id as string, 10),
-                    designation_id: parseInt(userData.designation_id as string, 10),
-                    role_id: parseInt(userData.role_id as string, 10),
-                    status: userData.status as "Active" | "Inactive",
-                  });
-                }}
-              >
+              <form onSubmit={handleSubmitEdit(onEditUser)}>
                 <div className="grid grid-cols-3 gap-6">
                   <div className="mb-4">
                     <label className="block mb-2">First Name</label>
                     <input
                       type="text"
-                      name="first_name"
-                      defaultValue={selectedUser.first_name}
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Enter the user's first name"
+                      {...registerEdit("first_name")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.first_name ? "border-red-500" : ""}`}
                       placeholder="Enter first name"
                     />
+                    {errorsEdit.first_name && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.first_name.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Last Name</label>
                     <input
                       type="text"
-                      name="last_name"
-                      defaultValue={selectedUser.last_name || ""}
-                      className="border rounded px-4 py-2 w-full"
-                      title="Enter the user's last name"
+                      {...registerEdit("last_name")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.last_name ? "border-red-500" : ""}`}
                       placeholder="Enter last name"
                     />
+                    {errorsEdit.last_name && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.last_name.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Username</label>
                     <input
                       type="text"
-                      name="username"
-                      defaultValue={selectedUser.username}
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      autoComplete="username"
-                      title="Enter a unique username for the user"
+                      {...registerEdit("username")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.username ? "border-red-500" : ""}`}
                       placeholder="Enter username"
+                      autoComplete="username"
                     />
+                    {errorsEdit.username && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.username.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Email</label>
                     <input
                       type="email"
-                      name="email"
-                      defaultValue={selectedUser.email || ""}
-                      className="border rounded px-4 py-2 w-full"
-                      title="Enter the user's email address"
+                      {...registerEdit("email")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.email ? "border-red-500" : ""}`}
                       placeholder="Enter email"
                     />
+                    {errorsEdit.email && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.email.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Telephone</label>
                     <input
                       type="text"
-                      name="telephone"
-                      defaultValue={selectedUser.telephone}
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Enter the user's telephone number"
+                      {...registerEdit("telephone")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.telephone ? "border-red-500" : ""}`}
                       placeholder="Enter telephone"
                     />
-                    {formErrors.telephone && (
-                      <div className="text-red-600 text-sm mt-1">{formErrors.telephone}</div>
+                    {errorsEdit.telephone && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.telephone.message}</p>
                     )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Department</label>
                     <select
-                      name="department_id"
-                      defaultValue={selectedUser.department_id || ""}
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Select the user's department"
+                      {...registerEdit("department_id")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.department_id ? "border-red-500" : ""}`}
                     >
                       <option value="">Select a Department</option>
                       {departments.map((department) => (
-                        <option key={department.id} value={department.id}>
+                        <option key={department.id} value={department.id.toString()}>
                           {department.department}
                         </option>
                       ))}
                     </select>
+                    {errorsEdit.department_id && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.department_id.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Designation</label>
                     <select
-                      name="designation_id"
-                      defaultValue={selectedUser.designation_id || ""}
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Select the user's designation"
+                      {...registerEdit("designation_id")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.designation_id ? "border-red-500" : ""}`}
                     >
                       <option value="">Select a Designation</option>
                       {designations.map((designation) => (
-                        <option key={designation.id} value={designation.id}>
+                        <option key={designation.id} value={designation.id.toString()}>
                           {designation.designation}
                         </option>
                       ))}
                     </select>
+                    {errorsEdit.designation_id && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.designation_id.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Role</label>
                     <select
-                      name="role_id"
-                      defaultValue={selectedUser.role_id || ""}
-                      className="border rounded px-4 py-2 w-full"
-                      required
-                      title="Select the user's role"
+                      {...registerEdit("role_id")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.role_id ? "border-red-500" : ""}`}
                     >
                       <option value="">Select a Role</option>
                       {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
+                        <option key={role.id} value={role.id.toString()}>
                           {role.name}
                         </option>
                       ))}
                     </select>
+                    {errorsEdit.role_id && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.role_id.message}</p>
+                    )}
                   </div>
+
                   <div className="mb-4">
                     <label className="block mb-2">Status</label>
                     <select
-                      name="status"
-                      defaultValue={selectedUser.status || "Active"}
-                      className="border rounded px-4 py-2 w-full"
-                      title="Select the user's status"
+                      {...registerEdit("status")}
+                      className={`border rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                     </select>
+                    {errorsEdit.status && (
+                      <p className="text-red-600 text-sm mt-1">{errorsEdit.status.message}</p>
+                    )}
                   </div>
                 </div>
+
                 <div className="flex justify-end">
                   <button
-                    type="reset"
+                    type="button"
                     className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
+                    onClick={() => setIsEditFormOpen(false)}
                   >
-                    Reset
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     className="bg-blue-500 text-white px-4 py-2 rounded"
+                    disabled={isSubmittingEdit}
                   >
                     Save
                   </button>
@@ -638,64 +823,59 @@ export default function UsersPage() {
       {/* View User Dialog */}
       {isViewDialogOpen && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Modal Background */}
           <div
             className="absolute inset-0 bg-gray-500/50"
             onClick={() => setIsViewDialogOpen(false)}
           ></div>
-
-          {/* Modal Content */}
-          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 z-10">
-            {/* Close Button */}
+          <div className="relative bg-white p-8 rounded shadow-lg w-3/4 max-w-6xl z-10 max-h-[90vh] overflow-y-auto">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
               onClick={() => setIsViewDialogOpen(false)}
             >
               ✕
             </button>
-
-            <h2 className="text-2xl font-bold mb-6">View User</h2>
+            <h2 className="text-2xl font-bold mb-6">User Details</h2>
             <div className="grid grid-cols-3 gap-6">
               <div className="mb-4">
-                <label className="block mb-2 font-bold">First Name</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.first_name}</p>
+                <label className="block text-sm font-medium text-gray-700">First Name</label>
+                <p className="text-gray-900">{selectedUser.first_name}</p>
               </div>
               <div className="mb-4">
-                <label className="block mb-2 font-bold">Last Name</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.last_name || "-"}</p>
+                <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                <p className="text-gray-900">{selectedUser.last_name || "-"}</p>
               </div>
               <div className="mb-4">
-                <label className="block mb-2 font-bold">Username</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.username}</p>
+                <label className="block text-sm font-medium text-gray-700">Username</label>
+                <p className="text-gray-900">{selectedUser.username}</p>
               </div>
               <div className="mb-4">
-                <label className="block mb-2 font-bold">Email</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.email || "-"}</p>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <p className="text-gray-900">{selectedUser.email || "-"}</p>
               </div>
               <div className="mb-4">
-                <label className="block mb-2 font-bold">Telephone</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.telephone}</p>
+                <label className="block text-sm font-medium text-gray-700">Telephone</label>
+                <p className="text-gray-900">{selectedUser.telephone}</p>
               </div>
               <div className="mb-4">
-                <label className="block mb-2 font-bold">Department</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.department || "-"}</p>
+                <label className="block text-sm font-medium text-gray-700">Department</label>
+                <p className="text-gray-900">{selectedUser.department || "-"}</p>
               </div>
               <div className="mb-4">
-                <label className="block mb-2 font-bold">Designation</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.designation || "-"}</p>
+                <label className="block text-sm font-medium text-gray-700">Designation</label>
+                <p className="text-gray-900">{selectedUser.designation || "-"}</p>
               </div>
               <div className="mb-4">
-                <label className="block mb-2 font-bold">Role</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.role_name}</p>
+                <label className="block text-sm font-medium text-gray-700">Role</label>
+                <p className="text-gray-900">{selectedUser.role_name}</p>
               </div>
               <div className="mb-4">
-                <label className="block mb-2 font-bold">Status</label>
-                <p className="border rounded px-4 py-2 bg-gray-100">{selectedUser.status}</p>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <p className="text-gray-900">{selectedUser.status}</p>
               </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-6">
               <button
-                className="bg-blue-500 text-white px-4 py-2 rounded"
+                className="bg-gray-500 text-white px-4 py-2 rounded"
                 onClick={() => setIsViewDialogOpen(false)}
               >
                 Close
