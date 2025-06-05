@@ -42,7 +42,7 @@ export default function Sidebar({ roleId }: SidebarProps) {
 
   const renderIcon = (icon: string | null) => {
     const LucideIcon = icon && (Icons as any)[icon];
-    return LucideIcon ? <LucideIcon className="w-4 h-4 mr-2" /> : null;
+    return LucideIcon ? <LucideIcon className="w-4 h-4 mr-2 text-blue-700" /> : null;
   };
 
   const renderMenu = (items: MenuItem[]) =>

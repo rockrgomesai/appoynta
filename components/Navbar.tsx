@@ -34,7 +34,7 @@ export default function Navbar() {
   return (
     <header className="w-full h-16 bg-white text-black flex items-center px-4 justify-between shadow-lg z-50 relative">
       {/* App Title */}
-      <h1 className="text-lg font-bold">Appoynta</h1>
+      <h1 className="text-2xl  text-blue-700 font-bold">Appoynta</h1>
 
       {/* Avatar and Dropdown */}
       <div className="relative">

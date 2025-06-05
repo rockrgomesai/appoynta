@@ -613,6 +613,7 @@ export default function AppointmentsPage() {
             Page {currentPage} of {Math.ceil(totalItems / pageSize)}
           </span>
           <select
+            title="Rows per page"
             className="border rounded px-4 py-2 shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             value={pageSize}
             onChange={(e) => {

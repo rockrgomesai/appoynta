@@ -88,6 +88,14 @@ export default function AppointmentsReportPage() {
     printWindow.print();
   };
 
+  // Helper to parse and format dates for DatePicker
+  function parseDate(str: string) {
+    return str ? new Date(str) : null;
+  }
+  function formatDate(date: Date | null) {
+    return date ? date.toISOString().split("T")[0] : "";
+  }
+
   return (
     <div className="p-4">
       {/* Thin Card with Date Inputs and OK Button */}
@@ -95,28 +103,30 @@ export default function AppointmentsReportPage() {
         <div className="flex items-center space-x-4">
           <div>
             <label htmlFor="from-date" className="block text-xs font-medium text-gray-600 mb-1">
-              From Date ({formatDisplayDate(fromDate)})
+              From Date {fromDate && `(${formatDisplayDate(fromDate)})`}
             </label>
             <DatePicker
               id="from-date"
-              selected={fromDate ? new Date(fromDate) : null}
-              onChange={date => setFromDate(date ? parseInputDate(date.toISOString().split('T')[0]) : "")}
+              selected={parseDate(fromDate)}
+              onChange={date => setFromDate(formatDate(date))}
               dateFormat="dd/MM/yyyy"
-              className="border rounded px-2 py-1 text-sm [&::-webkit-datetime-edit]: text-right"
+              className="border rounded px-2 py-1 text-sm"
               placeholderText="Select date"
+              isClearable
             />
           </div>
           <div>
             <label htmlFor="to-date" className="block text-xs font-medium text-gray-600 mb-1">
-              To Date ({formatDisplayDate(toDate)})
+              To Date {toDate && `(${formatDisplayDate(toDate)})`}
             </label>
             <DatePicker
               id="to-date"
-              selected={toDate ? new Date(toDate) : null}
-              onChange={date => setToDate(date ? parseInputDate(date.toISOString().split('T')[0]) : "")}  
+              selected={parseDate(toDate)}
+              onChange={date => setToDate(formatDate(date))}
               dateFormat="dd/MM/yyyy"
-              className="border rounded px-2 py-1 text-sm [&::-webkit-datetime-edit]: text-right"
-            placeholderText="Select date"
+              className="border rounded px-2 py-1 text-sm"
+              placeholderText="Select date"
+              isClearable
             />
           </div>
         </div>

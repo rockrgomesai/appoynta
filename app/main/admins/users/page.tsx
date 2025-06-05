@@ -422,13 +422,16 @@ export default function UsersPage() {
           <span>
             Page {currentPage} of {Math.ceil(totalItems / pageSize)}
           </span>
+          <label htmlFor="pagination-page-size" className="sr-only">Rows per page</label>
           <select
+            id="pagination-page-size"
             className="border rounded px-4 py-2 shadow-[2px_2px_4px_rgba(0,0,0,0.2)]"
             value={pageSize}
             onChange={(e) => {
               setPageSize(Number(e.target.value));
               setCurrentPage(1);
             }}
+            aria-label="Rows per page"
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
@@ -553,12 +556,13 @@ export default function UsersPage() {
                       <p className="text-red-600 text-sm mt-1">{errorsAdd.telephone.message}</p>
                     )}
                   </div>
-
                   <div className="mb-4">
-                    <label className="block mb-2">Department</label>
+                    <label htmlFor="add-department" className="block mb-2">Department</label>
                     <select
+                      id="add-department"
                       {...registerAdd("department_id")}
                       className={`border rounded px-4 py-2 w-full ${errorsAdd.department_id ? "border-red-500" : ""}`}
+                      aria-label="Department"
                     >
                       <option value="">Select a Department</option>
                       {departments.map((department) => (
@@ -571,10 +575,12 @@ export default function UsersPage() {
                   </div>
 
                   <div className="mb-4">
-                    <label className="block mb-2">Designation</label>
+                    <label htmlFor="add-designation" className="block mb-2">Designation</label>
                     <select
+                      id="add-designation"
                       {...registerAdd("designation_id")}
                       className={`border rounded px-4 py-2 w-full ${errorsAdd.designation_id ? "border-red-500" : ""}`}
+                      aria-label="Designation"
                     >
                       <option value="">Select a Designation</option>
                       {designations.map((designation) => (
@@ -589,10 +595,12 @@ export default function UsersPage() {
                   </div>
 
                   <div className="mb-4">
-                    <label className="block mb-2">Role</label>
+                    <label htmlFor="add-role" className="block mb-2">Role</label>
                     <select
+                      id="add-role"
                       {...registerAdd("role_id")}
                       className={`border rounded px-4 py-2 w-full ${errorsAdd.role_id ? "border-red-500" : ""}`}
+                      aria-label="Role"
                     >
                       <option value="">Select a Role</option>
                       {roles.map((role) => (
@@ -717,23 +725,12 @@ export default function UsersPage() {
                   </div>
 
                   <div className="mb-4">
-                    <label className="block mb-2">Telephone</label>
-                    <input
-                      type="text"
-                      {...registerEdit("telephone")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.telephone ? "border-red-500" : ""}`}
-                      placeholder="Enter telephone"
-                    />
-                    {errorsEdit.telephone && (
-                      <p className="text-red-600 text-sm mt-1">{errorsEdit.telephone.message}</p>
-                    )}
-                  </div>
-
-                  <div className="mb-4">
                     <label className="block mb-2">Department</label>
                     <select
+                      id="edit-department"
                       {...registerEdit("department_id")}
                       className={`border rounded px-4 py-2 w-full ${errorsEdit.department_id ? "border-red-500" : ""}`}
+                      aria-label="Department"
                     >
                       <option value="">Select a Department</option>
                       {departments.map((department) => (
@@ -750,8 +747,10 @@ export default function UsersPage() {
                   <div className="mb-4">
                     <label className="block mb-2">Designation</label>
                     <select
+                      id="edit-designation"
                       {...registerEdit("designation_id")}
                       className={`border rounded px-4 py-2 w-full ${errorsEdit.designation_id ? "border-red-500" : ""}`}
+                      aria-label="Designation"
                     >
                       <option value="">Select a Designation</option>
                       {designations.map((designation) => (
@@ -768,8 +767,10 @@ export default function UsersPage() {
                   <div className="mb-4">
                     <label className="block mb-2">Role</label>
                     <select
+                      id="edit-role"
                       {...registerEdit("role_id")}
                       className={`border rounded px-4 py-2 w-full ${errorsEdit.role_id ? "border-red-500" : ""}`}
+                      aria-label="Role"
                     >
                       <option value="">Select a Role</option>
                       {roles.map((role) => (
@@ -786,8 +787,10 @@ export default function UsersPage() {
                   <div className="mb-4">
                     <label className="block mb-2">Status</label>
                     <select
+                      id="edit-status"
                       {...registerEdit("status")}
                       className={`border rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
+                      aria-label="Status"
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
