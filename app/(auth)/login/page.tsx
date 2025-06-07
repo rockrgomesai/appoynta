@@ -44,7 +44,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     try {
-      const response = await axios.post("/api/auth/login", data);
+      const response = await axios.post("/api/auth/login", data, { withCredentials: true });
       const { token, user } = response.data;
 
       // Save token and user object in localStorage
@@ -54,7 +54,7 @@ export default function LoginPage() {
       // Redirect to the dashboard
       toast.success("Login successful!"); // Show success message
       const redirect = searchParams.get("redirect");
-      router.replace(redirect || "/main");
+      router.replace(redirect || "/"); // changed here from /main to /
     } catch (error: any) {
       console.error("Login failed:", error);
 
@@ -70,7 +70,7 @@ export default function LoginPage() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem("token"); // Retrieve the token from localStorage
-      const response = await axios.get<User[]>("/api/users", {
+      const response = await axios.get<User[]>("/api/users", { 
         params: { page: currentPage, pageSize, search: searchTerm },
         headers: {
           Authorization: `Bearer ${token}`, // Add the Bearer token to the Authorization header

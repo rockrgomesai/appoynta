@@ -51,10 +51,11 @@ export default function Sidebar({ roleId }: SidebarProps) {
       const hasChildren = item.children && item.children.length > 0;
 
       return (
+
         <div key={item.id}>
           <div
             className={cn(
-              'flex items-center justify-between cursor-pointer p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800',
+              'flex items-center justify-between cursor-pointer p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-800',
               isActive ? 'bg-gray-200 dark:bg-gray-700 font-medium' : ''
             )}
             onClick={() => hasChildren ? toggleMenu(item.id) : null}
@@ -75,7 +76,7 @@ export default function Sidebar({ roleId }: SidebarProps) {
                 <span>{item.label}</span>
               </Link>
             )}
-            
+
             {hasChildren && (
               <button
                 onClick={() => toggleMenu(item.id)}
@@ -102,7 +103,7 @@ export default function Sidebar({ roleId }: SidebarProps) {
     });
 
   return (
-    <aside className="w-64 h-full p-4 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+    <aside className="w-64 h-full p-4 mt-5 bg-white  overflow-y-auto shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08),0_2px_6px_-2px_rgba(0,0,0,0.08)]">
       {renderMenu(menuItems)}
     </aside>
   );

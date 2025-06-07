@@ -7,6 +7,7 @@ import * as jwt from 'jsonwebtoken';
 import { verifyPassword } from '@/lib/security';
 import { eq, sql } from 'drizzle-orm';
 import 'dotenv/config';
+import { cookies } from "next/headers";
 
 // Zod schema for login
 const loginSchema = z.object({
@@ -61,6 +62,9 @@ export async function POST(req: Request) {
   const expiresIn = Number(process.env.JWT_EXPIRES) || 60 * 60 * 8; // Default to 8 hours
   const payload = { userId: user.id, username: user.username, role: user.role_name }; // Include role_name in the payload
   const token = jwt.sign(payload, secret, { expiresIn });
+
+  // Set cookie
+  (await cookies()).set("token", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 8 });
 
   // Respond with token and user information
   const { password: _, ...userWithoutPassword } = user; // Exclude password from the response

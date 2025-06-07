@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import axiosInstance from "@/lib/axios";
-import { Designation } from "@/types/Designation";
+import { Department } from "@/types/Department";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
   faEdit, 
@@ -21,17 +21,17 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-// Zod schema
-const designationSchema = z.object({
-  designation: z.string().min(2, "Designation name is required").max(255, "Designation name too long"),
+// Zod schema based on your DB schema
+const departmentSchema = z.object({
+  department: z.string().min(2, "Department name is required").max(255, "Department name too long"),
   status: z.enum(["Active", "Inactive"], { required_error: "Status is required" }),
 });
 
-type DesignationForm = z.infer<typeof designationSchema>;
+type DepartmentForm = z.infer<typeof departmentSchema>;
 
-export default function DesignationPage() {
-  const [designations, setDesignations] = useState<Designation[]>([]);
-  const [selectedDesignation, setSelectedDesignation] = useState<Designation | null>(null);
+export default function DepartmentPage() {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -42,31 +42,31 @@ export default function DesignationPage() {
   const [sortColumn, setSortColumn] = useState<string | null>("id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Add Designation Form
+  // Add Department Form
   const {
     register: registerAdd,
     handleSubmit: handleSubmitAdd,
     reset: resetAdd,
     formState: { errors: errorsAdd, isSubmitting: isSubmittingAdd },
-  } = useForm<DesignationForm>({
-    resolver: zodResolver(designationSchema),
-    defaultValues: { designation: "", status: "Active" },
+  } = useForm<DepartmentForm>({
+    resolver: zodResolver(departmentSchema),
+    defaultValues: { department: "", status: "Active" },
   });
 
-  // Edit Designation Form
+  // Edit Department Form
   const {
     register: registerEdit,
     handleSubmit: handleSubmitEdit,
     reset: resetEdit,
     formState: { errors: errorsEdit, isSubmitting: isSubmittingEdit },
-  } = useForm<DesignationForm>({
-    resolver: zodResolver(designationSchema),
+  } = useForm<DepartmentForm>({
+    resolver: zodResolver(departmentSchema),
   });
 
-  // Fetch designations
-  const fetchDesignations = async () => {
+  // Fetch departments
+  const fetchDepartments = async () => {
     try {
-      const response = await axiosInstance.get("/designations", {
+      const response = await axiosInstance.get("/departments", {
         params: {
           page: currentPage,
           pageSize,
@@ -75,16 +75,16 @@ export default function DesignationPage() {
           sortOrder: sortOrder || "desc",
         },
       });
-      setDesignations(response.data.data);
+      setDepartments(response.data.data);
       setTotalItems(response.data.total);
     } catch (error: any) {
-      console.error("Failed to fetch designations:", error);
-      toast.error(error?.response?.data?.error || "Failed to fetch designations");
+      console.error("Failed to fetch departments:", error);
+      toast.error(error?.response?.data?.error || "Failed to fetch departments");
     }
   };
 
   useEffect(() => {
-    fetchDesignations();
+    fetchDepartments();
   }, [currentPage, pageSize, searchTerm, sortColumn, sortOrder]);
 
   // Handle sorting
@@ -107,59 +107,59 @@ export default function DesignationPage() {
       : <FontAwesomeIcon icon={faSortDown} className="ml-1 text-blue-600" />;
   };
 
-  // Handle Add Designation
-  const onAddDesignation = async (data: DesignationForm) => {
+  // Handle Add Department
+  const onAddDepartment = async (data: DepartmentForm) => {
     try {
-      await axiosInstance.post("/designations", data);
+      await axiosInstance.post("/departments", data);
       setIsAddFormOpen(false);
-      resetAdd({ designation: "", status: "Active" });
-      toast.success("Designation added successfully!");
+      resetAdd({ department: "", status: "Active" });
+      toast.success("Department added successfully!");
       
       // Reset to first page and ensure proper sorting for new records
       setCurrentPage(1);
       setSortColumn("id");
       setSortOrder("desc");
       
-      // Fetch designations to show the new record at the top
-      fetchDesignations();
+      // Fetch departments to show the new record at the top
+      fetchDepartments();
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Failed to add designation.");
+      toast.error(error?.response?.data?.error || "Failed to add department.");
     }
   };
 
-  // Handle Edit Designation
-  const onEditDesignation = async (data: DesignationForm) => {
+  // Handle Edit Department
+  const onEditDepartment = async (data: DepartmentForm) => {
     try {
-      if (!selectedDesignation) return;
-      await axiosInstance.patch(`/designations/${selectedDesignation.id}`, data);
+      if (!selectedDepartment) return;
+      await axiosInstance.patch(`/departments/${selectedDepartment.id}`, data);
       setIsEditFormOpen(false);
-      setSelectedDesignation(null);
-      toast.success("Designation updated successfully!");
-      fetchDesignations();
+      setSelectedDepartment(null);
+      toast.success("Department updated successfully!");
+      fetchDepartments();
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Failed to update designation.");
+      toast.error(error?.response?.data?.error || "Failed to update department.");
     }
   };
 
-  // Handle Delete Designation
-  const handleDeleteDesignation = async (id: number) => {
-    if (confirm("Are you sure you want to delete this designation?")) {
+  // Handle Delete Department
+  const handleDeleteDepartment = async (id: number) => {
+    if (confirm("Are you sure you want to delete this department?")) {
       try {
-        await axiosInstance.delete(`/designations/${id}`);
-        toast.success("Designation deleted.");
-        fetchDesignations();
+        await axiosInstance.delete(`/departments/${id}`);
+        toast.success("Department deleted.");
+        fetchDepartments();
       } catch (error: any) {
-        toast.error(error?.response?.data?.error || "Failed to delete designation.");
+        toast.error(error?.response?.data?.error || "Failed to delete department.");
       }
     }
   };
 
   // Open Edit Form
-  const openEditForm = (designation: Designation) => {
-    setSelectedDesignation(designation);
+  const openEditForm = (department: Department) => {
+    setSelectedDepartment(department);
     resetEdit({
-      designation: designation.designation,
-      status: designation.status as "Active" | "Inactive",
+      department: department.department,
+      status: department.status as "Active" | "Inactive",
     });
     setIsEditFormOpen(true);
   };
@@ -168,11 +168,11 @@ export default function DesignationPage() {
     <div>
       {/* Header Row */}
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl text-blue-500 font-extrabold">Designations</h1>
+        <h1 className="text-2xl text-blue-500 font-extrabold">Departments</h1>
         <div className="flex items-center space-x-4">
           <input
             type="text"
-            placeholder="Search designations..."
+            placeholder="Search departments..."
             className="border rounded px-4 py-2"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -186,15 +186,15 @@ export default function DesignationPage() {
         </div>
       </div>
 
-      {/* Designations Table */}
+      {/* Departments Table */}
       <table className="w-full border-collapse border border-gray-300">
         <thead>
           <tr className="bg-gray-200 text-gray-700">
             <th 
               className="border border-gray-300 px-4 py-2 cursor-pointer"
-              onClick={() => handleSort("designation")}
+              onClick={() => handleSort("department")}
             >
-              Designation {getSortIcon("designation")}
+              Department {getSortIcon("department")}
             </th>
             <th 
               className="border border-gray-300 px-4 py-2 cursor-pointer"
@@ -206,19 +206,19 @@ export default function DesignationPage() {
           </tr>
         </thead>
         <tbody>
-          {designations.length > 0 ? (
-            designations.map((designation) => (
+          {departments.length > 0 ? (
+            departments.map((department) => (
               <tr
-                key={designation.id}
+                key={department.id}
                 className="odd:bg-blue-50 even:bg-blue-100 hover:bg-blue-200 transition-colors duration-200"
               >
-                <td className="border border-gray-300 px-4 py-2">{designation.designation}</td>
-                <td className="border border-gray-300 px-4 py-2">{designation.status}</td>
+                <td className="border border-gray-300 px-4 py-2">{department.department}</td>
+                <td className="border border-gray-300 px-4 py-2">{department.status}</td>
                 <td className="border border-gray-300 px-4 py-2 text-left">
                   <button
                     className="text-blue-500 hover:underline mr-2"
                     onClick={() => {
-                      setSelectedDesignation(designation);
+                      setSelectedDepartment(department);
                       setIsViewDialogOpen(true);
                     }}
                     title="View"
@@ -227,14 +227,14 @@ export default function DesignationPage() {
                   </button>
                   <button
                     className="text-green-500 hover:underline mr-2"
-                    onClick={() => openEditForm(designation)}
+                    onClick={() => openEditForm(department)}
                     title="Edit"
                   >
                     <FontAwesomeIcon icon={faEdit} className="w-5 h-5" />
                   </button>
                   <button
                     className="text-red-500 hover:underline"
-                    onClick={() => handleDeleteDesignation(designation.id!)}
+                    onClick={() => handleDeleteDepartment(department.id!)}
                     title="Delete"
                   >
                     <FontAwesomeIcon icon={faRemove} className="w-5 h-5" />
@@ -245,7 +245,7 @@ export default function DesignationPage() {
           ) : (
             <tr>
               <td colSpan={3} className="text-center py-4">
-                No designations found.
+                No departments found.
               </td>
             </tr>
           )}
@@ -281,10 +281,12 @@ export default function DesignationPage() {
               setPageSize(Number(e.target.value));
               setCurrentPage(1);
             }}
+            aria-label="Items per page"
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
             <option value={50}>50</option>
+            <option value={100}>100</option>
             <option value={100}>100</option>
           </select>
         </div>
@@ -306,7 +308,7 @@ export default function DesignationPage() {
         </div>
       </div>
 
-      {/* Add Designation Form */}
+      {/* Add Department Form */}
       {isAddFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -320,18 +322,18 @@ export default function DesignationPage() {
             >
               ✕
             </button>
-            <h2 className="text-2xl font-bold mb-6 text-blue-500">Add Designation</h2>
-            <form onSubmit={handleSubmitAdd(onAddDesignation)}>
+            <h2 className="text-2xl font-bold mb-6 text-blue-500">Add Department</h2>
+            <form onSubmit={handleSubmitAdd(onAddDepartment)}>
               <div className="mb-4">
-                <label className="block mb-2">Designation Name</label>
+                <label className="block mb-2">Department Name</label>
                 <input
                   type="text"
-                  {...registerAdd("designation")}
-                  className={`border rounded px-4 py-2 w-full ${errorsAdd.designation ? "border-red-500" : ""}`}
-                  placeholder="Enter designation name"
+                  {...registerAdd("department")}
+                  className={`border rounded px-4 py-2 w-full ${errorsAdd.department ? "border-red-500" : ""}`}
+                  placeholder="Enter department name"
                 />
-                {errorsAdd.designation && (
-                  <p className="text-red-600 text-sm mt-1">{errorsAdd.designation.message}</p>
+                {errorsAdd.department && (
+                  <p className="text-red-600 text-sm mt-1">{errorsAdd.department.message}</p>
                 )}
               </div>
               <div className="mb-4">
@@ -351,7 +353,7 @@ export default function DesignationPage() {
                 <button
                   type="button"
                   className="bg-gray-500 text-white px-4 py-2 rounded mr-2"
-                  onClick={() => resetAdd({ designation: "", status: "Active" })}
+                  onClick={() => resetAdd({ department: "", status: "Active" })}
                 >
                   Reset
                 </button>
@@ -368,8 +370,8 @@ export default function DesignationPage() {
         </div>
       )}
 
-      {/* Edit Designation Form */}
-      {isEditFormOpen && selectedDesignation && (
+      {/* Edit Department Form */}
+      {isEditFormOpen && selectedDepartment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-gray-500/50"
@@ -382,18 +384,18 @@ export default function DesignationPage() {
             >
               ✕
             </button>
-            <h2 className="text-2xl font-bold mb-6 text-blue-500">Edit Designation</h2>
-            <form onSubmit={handleSubmitEdit(onEditDesignation)}>
+            <h2 className="text-2xl font-bold mb-6 text-blue-500">Edit Department</h2>
+            <form onSubmit={handleSubmitEdit(onEditDepartment)}>
               <div className="mb-4">
-                <label className="block mb-2">Designation Name</label>
+                <label className="block mb-2">Department Name</label>
                 <input
                   type="text"
-                  {...registerEdit("designation")}
-                  className={`border rounded px-4 py-2 w-full ${errorsEdit.designation ? "border-red-500" : ""}`}
-                  placeholder="Enter designation name"
+                  {...registerEdit("department")}
+                  className={`border rounded px-4 py-2 w-full ${errorsEdit.department ? "border-red-500" : ""}`}
+                  placeholder="Enter department name"
                 />
-                {errorsEdit.designation && (
-                  <p className="text-red-600 text-sm mt-1">{errorsEdit.designation.message}</p>
+                {errorsEdit.department && (
+                  <p className="text-red-600 text-sm mt-1">{errorsEdit.department.message}</p>
                 )}
               </div>
               <div className="mb-4">
@@ -430,8 +432,8 @@ export default function DesignationPage() {
         </div>
       )}
 
-      {/* View Designation Dialog */}
-      {isViewDialogOpen && selectedDesignation && (
+      {/* View Department Modal */}
+      {isViewDialogOpen && selectedDepartment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-gray-500/50"
@@ -444,15 +446,15 @@ export default function DesignationPage() {
             >
               ✕
             </button>
-            <h2 className="text-2xl font-bold mb-6">Designation Details</h2>
+            <h2 className="text-2xl font-bold mb-6">Department Details</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Designation Name</label>
-                <p className="text-gray-900">{selectedDesignation.designation}</p>
+                <label className="block text-sm font-medium text-gray-700">Department Name</label>
+                <p className="text-gray-900">{selectedDepartment.department}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Status</label>
-                <p className="text-gray-900">{selectedDesignation.status}</p>
+                <p className="text-gray-900">{selectedDepartment.status}</p>
               </div>
             </div>
             <div className="flex justify-end mt-6">
