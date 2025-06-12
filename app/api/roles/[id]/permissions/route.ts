@@ -5,6 +5,7 @@ import { authenticate } from '@/lib/auth';
 import { authorize } from '@/lib/permissions';
 import { rolePermissions, permissions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { redis } from "@/lib/redis"; // your ioredis instance
 
 // GET /api/roles/[id]/permissions
 export async function GET(
@@ -25,10 +26,8 @@ export async function GET(
 }
 
 // POST /api/roles/[id]/permissions
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: Request, context: { params: { id: string } }) {
+  const { params } = await context;
   const user = await authenticate(req);
   await authorize(user, 'update:role_permissions');
 
@@ -42,6 +41,7 @@ export async function POST(
       db.insert(rolePermissions).values({ role_id, permissionId: pid })
     )
   );
+  await redis.del(`role_permissions:${params.id}`);
 
   return NextResponse.json({ success: true });
 }
