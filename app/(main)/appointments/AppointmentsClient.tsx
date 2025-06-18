@@ -671,7 +671,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <label className="block mb-2">Type</label>
                   <select
                     {...registerAdd("appointment_type")}
-                    className={`border rounded px-4 py-2 w-full ${errorsAdd.appointment_type ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsAdd.appointment_type ? "border-red-500" : ""}`}
                   >
                     <option value="Meeting">Meeting</option>
                     <option value="Project">Project</option>
@@ -693,7 +693,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <input
                     type="text"
                     {...registerAdd("topic")}
-                    className={`border rounded px-4 py-2 w-full ${errorsAdd.topic ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsAdd.topic ? "border-red-500" : ""}`}
                     placeholder="Enter topic"
                   />
                   {errorsAdd.topic && (
@@ -707,7 +707,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                     selected={watchAdd("start_date") ? new Date(watchAdd("start_date")) : null}
                     onChange={(date) => setValueAdd("start_date", date ? format(date, "yyyy-MM-dd") : "")}
                     dateFormat="dd/MM/yyyy"
-                    className={`border rounded px-4 py-2 w-full ${errorsAdd.start_date ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsAdd.start_date ? "border-red-500" : ""}`}
                   />
                   {errorsAdd.start_date && (
                     <p className="text-red-600 text-sm mt-1">{errorsAdd.start_date.message}</p>
@@ -720,7 +720,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                     selected={watchAdd("end_date") ? new Date(watchAdd("end_date")) : null}
                     onChange={(date) => setValueAdd("end_date", date ? format(date, "yyyy-MM-dd") : "")}
                     dateFormat="dd/MM/yyyy"
-                    className={`border rounded px-4 py-2 w-full ${errorsAdd.end_date ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsAdd.end_date ? "border-red-500" : ""}`}
                   />
                   {errorsAdd.end_date && (
                     <p className="text-red-600 text-sm mt-1">{errorsAdd.end_date.message}</p>
@@ -732,7 +732,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <input
                     type="time"
                     {...registerAdd("start_time")}
-                    className={`border rounded px-4 py-2 w-full ${errorsAdd.start_time ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsAdd.start_time ? "border-red-500" : ""}`}
                   />
                   {errorsAdd.start_time && (
                     <p className="text-red-600 text-sm mt-1">{errorsAdd.start_time.message}</p>
@@ -744,7 +744,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <input
                     type="time"
                     {...registerAdd("end_time")}
-                    className={`border rounded px-4 py-2 w-full ${errorsAdd.end_time ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsAdd.end_time ? "border-red-500" : ""}`}
                   />
                   {errorsAdd.end_time && (
                     <p className="text-red-600 text-sm mt-1">{errorsAdd.end_time.message}</p>
@@ -755,7 +755,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <label className="block mb-2">Status</label>
                   <select
                     {...registerAdd("status")}
-                    className={`border rounded px-4 py-2 w-full ${errorsAdd.status ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsAdd.status ? "border-red-500" : ""}`}
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -769,7 +769,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <label className="block mb-2">Note</label>
                   <textarea
                     {...registerAdd("note")}
-                    className={`border rounded px-4 py-2 w-full ${errorsAdd.note ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsAdd.note ? "border-red-500" : ""}`}
                     rows={3}
                     placeholder="Enter note"
                   />
@@ -821,7 +821,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <label className="block mb-2">Type</label>
                   <select
                     {...registerEdit("appointment_type")}
-                    className={`border rounded px-4 py-2 w-full ${errorsEdit.appointment_type ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsEdit.appointment_type ? "border-red-500" : ""}`}
                   >
                     <option value="Meeting">Meeting</option>
                     <option value="Project">Project</option>
@@ -843,7 +843,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <input
                     type="text"
                     {...registerEdit("topic")}
-                    className={`border rounded px-4 py-2 w-full ${errorsEdit.topic ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsEdit.topic ? "border-red-500" : ""}`}
                     placeholder="Enter topic"
                   />
                   {errorsEdit.topic && (
@@ -857,7 +857,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                     selected={watchEdit("start_date") ? new Date(watchEdit("start_date")) : null}
                     onChange={(date) => setValueEdit("start_date", date ? format(date, "yyyy-MM-dd") : "")}
                     dateFormat="dd/MM/yyyy"
-                    className={`border rounded px-4 py-2 w-full ${errorsEdit.start_date ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsEdit.start_date ? "border-red-500" : ""}`}
                   />
                   {errorsEdit.start_date && (
                     <p className="text-red-600 text-sm mt-1">{errorsEdit.start_date.message}</p>
@@ -870,7 +870,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                     selected={watchEdit("end_date") ? new Date(watchEdit("end_date")) : null}
                     onChange={(date) => setValueEdit("end_date", date ? format(date, "yyyy-MM-dd") : "")}
                     dateFormat="dd/MM/yyyy"
-                    className={`border rounded px-4 py-2 w-full ${errorsEdit.end_date ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsEdit.end_date ? "border-red-500" : ""}`}
                   />
                   {errorsEdit.end_date && (
                     <p className="text-red-600 text-sm mt-1">{errorsEdit.end_date.message}</p>
@@ -882,7 +882,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <input
                     type="time"
                     {...registerEdit("start_time")}
-                    className={`border rounded px-4 py-2 w-full ${errorsEdit.start_time ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsEdit.start_time ? "border-red-500" : ""}`}
                   />
                   {errorsEdit.start_time && (
                     <p className="text-red-600 text-sm mt-1">{errorsEdit.start_time.message}</p>
@@ -894,7 +894,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <input
                     type="time"
                     {...registerEdit("end_time")}
-                    className={`border rounded px-4 py-2 w-full ${errorsEdit.end_time ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsEdit.end_time ? "border-red-500" : ""}`}
                   />
                   {errorsEdit.end_time && (
                     <p className="text-red-600 text-sm mt-1">{errorsEdit.end_time.message}</p>
@@ -905,7 +905,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <label className="block mb-2">Status</label>
                   <select
                     {...registerEdit("status")}
-                    className={`border rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -919,7 +919,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
                   <label className="block mb-2">Note</label>
                   <textarea
                     {...registerEdit("note")}
-                    className={`border rounded px-4 py-2 w-full ${errorsEdit.note ? "border-red-500" : ""}`}
+                    className={`border border-gray-500 rounded px-4 py-2 w-full ${errorsEdit.note ? "border-red-500" : ""}`}
                     rows={3}
                     placeholder="Enter note"
                   />
@@ -1013,7 +1013,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
 
       {/* Add Host Popup */}
       {isAddHostPopupOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-gray-500/50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-2/3 relative">
             {/* Close Button */}
             <button
@@ -1147,7 +1147,7 @@ export default function AppointmentsPage({ user, permissions }: AppointmentsPage
 
       {/* Add Guest Popup */}
       {isAddGuestPopupOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-gray-500/50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-2/3 relative">
             {/* Close Button */}
             <button

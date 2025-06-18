@@ -487,7 +487,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="text"
                       {...registerAdd("first_name")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.first_name ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.first_name ? "border-red-500" : ""}`}
                       placeholder="Enter first name"
                     />
                     {errorsAdd.first_name && (
@@ -500,7 +500,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="text"
                       {...registerAdd("last_name")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.last_name ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.last_name ? "border-red-500" : ""}`}
                       placeholder="Enter last name"
                     />
                     {errorsAdd.last_name && (
@@ -513,7 +513,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="text"
                       {...registerAdd("username")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.username ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.username ? "border-red-500" : ""}`}
                       placeholder="Enter username"
                       autoComplete="username"
                     />
@@ -527,7 +527,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="password"
                       {...registerAdd("password")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.password ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.password ? "border-red-500" : ""}`}
                       placeholder="Enter password"
                       autoComplete="new-password"
                     />
@@ -541,7 +541,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="email"
                       {...registerAdd("email")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.email ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.email ? "border-red-500" : ""}`}
                       placeholder="Enter email"
                     />
                     {errorsAdd.email && (
@@ -554,7 +554,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="text"
                       {...registerAdd("telephone")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.telephone ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.telephone ? "border-red-500" : ""}`}
                       placeholder="Enter telephone"
                     />
                     {errorsAdd.telephone && (
@@ -566,7 +566,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <select
                       id="add-department"
                       {...registerAdd("department_id")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.department_id ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.department_id ? "border-red-500" : ""}`}
                       aria-label="Department"
                     >
                       <option value="">Select a Department</option>
@@ -584,7 +584,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <select
                       id="add-designation"
                       {...registerAdd("designation_id")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.designation_id ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.designation_id ? "border-red-500" : ""}`}
                       aria-label="Designation"
                     >
                       <option value="">Select a Designation</option>
@@ -604,7 +604,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <select
                       id="add-role"
                       {...registerAdd("role_id")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.role_id ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.role_id ? "border-red-500" : ""}`}
                       aria-label="Role"
                     >
                       <option value="">Select a Role</option>
@@ -623,7 +623,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <label className="block mb-2">Status</label>
                     <select
                       {...registerAdd("status")}
-                      className={`border rounded px-4 py-2 w-full ${errorsAdd.status ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsAdd.status ? "border-red-500" : ""}`}
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
@@ -681,7 +681,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="text"
                       {...registerEdit("first_name")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.first_name ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsEdit.first_name ? "border-red-500" : ""}`}
                       placeholder="Enter first name"
                     />
                     {errorsEdit.first_name && (
@@ -694,7 +694,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="text"
                       {...registerEdit("last_name")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.last_name ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsEdit.last_name ? "border-red-500" : ""}`}
                       placeholder="Enter last name"
                     />
                     {errorsEdit.last_name && (
@@ -707,7 +707,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="text"
                       {...registerEdit("username")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.username ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsEdit.username ? "border-red-500" : ""}`}
                       placeholder="Enter username"
                       autoComplete="username"
                     />
@@ -721,7 +721,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <input
                       type="email"
                       {...registerEdit("email")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.email ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsEdit.email ? "border-red-500" : ""}`}
                       placeholder="Enter email"
                     />
                     {errorsEdit.email && (
@@ -734,7 +734,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <select
                       id="edit-department"
                       {...registerEdit("department_id")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.department_id ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsEdit.department_id ? "border-red-500" : ""}`}
                       aria-label="Department"
                     >
                       <option value="">Select a Department</option>
@@ -754,7 +754,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <select
                       id="edit-designation"
                       {...registerEdit("designation_id")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.designation_id ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsEdit.designation_id ? "border-red-500" : ""}`}
                       aria-label="Designation"
                     >
                       <option value="">Select a Designation</option>
@@ -774,7 +774,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <select
                       id="edit-role"
                       {...registerEdit("role_id")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.role_id ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsEdit.role_id ? "border-red-500" : ""}`}
                       aria-label="Role"
                     >
                       <option value="">Select a Role</option>
@@ -794,7 +794,7 @@ export default function UsersPage({ user, permissions }: UsersPageProps) {
                     <select
                       id="edit-status"
                       {...registerEdit("status")}
-                      className={`border rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
+                      className={`border border-gray-700 rounded px-4 py-2 w-full ${errorsEdit.status ? "border-red-500" : ""}`}
                       aria-label="Status"
                     >
                       <option value="Active">Active</option>

@@ -126,7 +126,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <input 
                 type="text" 
                 {...register("name")}
-                className={`border rounded px-4 py-2 w-full ${errors.name ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.name ? "border-red-500" : ""}`}
                 placeholder="Enter name" 
               />
               {errors.name && (
@@ -139,7 +139,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <input 
                 type="email" 
                 {...register("email")}
-                className={`border rounded px-4 py-2 w-full ${errors.email ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.email ? "border-red-500" : ""}`}
                 placeholder="Enter email" 
               />
               {errors.email && (
@@ -152,7 +152,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <input 
                 type="text" 
                 {...register("phone")}
-                className={`border rounded px-4 py-2 w-full ${errors.phone ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.phone ? "border-red-500" : ""}`}
                 placeholder="Enter phone" 
               />
               {errors.phone && (
@@ -164,7 +164,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <label className="block mb-2">WhatsApp</label>
               <select 
                 {...register("whatsapp")}
-                className={`border rounded px-4 py-2 w-full ${errors.whatsapp ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.whatsapp ? "border-red-500" : ""}`}
               >
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -178,7 +178,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <label className="block mb-2">Gender</label>
               <select 
                 {...register("gender")}
-                className={`border rounded px-4 py-2 w-full ${errors.gender ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.gender ? "border-red-500" : ""}`}
               >
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
@@ -194,7 +194,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <input 
                 type="text" 
                 {...register("company")}
-                className={`border rounded px-4 py-2 w-full ${errors.company ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.company ? "border-red-500" : ""}`}
                 placeholder="Enter company" 
               />
               {errors.company && (
@@ -207,7 +207,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <input 
                 type="text" 
                 {...register("nid")}
-                className={`border rounded px-4 py-2 w-full ${errors.nid ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.nid ? "border-red-500" : ""}`}
                 placeholder="Enter NID" 
               />
               {errors.nid && (
@@ -219,7 +219,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <label className="block mb-2">Status</label>
               <select 
                 {...register("status")}
-                className={`border rounded px-4 py-2 w-full ${errors.status ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.status ? "border-red-500" : ""}`}
               >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
@@ -233,7 +233,7 @@ const VisitorFormModal: React.FC<VisitorFormModalProps> = ({
               <label className="block mb-2">Note</label>
               <textarea 
                 {...register("note")}
-                className={`border rounded px-4 py-2 w-full ${errors.note ? "border-red-500" : ""}`}
+                className={`border border-gray-700 rounded px-4 py-2 w-full ${errors.note ? "border-red-500" : ""}`}
                 rows={3} 
                 placeholder="Enter note" 
               />

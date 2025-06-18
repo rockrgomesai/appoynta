@@ -133,13 +133,11 @@ export default function DashboardClient({ user, permissions }: DashboardClientPr
           ))}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="font-semibold mb-2">Appointments by Type</h3>
-            <Pie data={appointmentsByTypeData} options={{ responsive: true }} />
-          </div>
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="font-semibold mb-2">Appointments by Status</h3>
-            <Bar data={appointmentsByStatusData} options={{ responsive: true, plugins: { legend: { display: false } } }} />
+          <div className="col-span-2 flex justify-center">
+            <div className="bg-white rounded-xl shadow p-6 w-full max-w-lg">
+              <h3 className="font-semibold mb-2 text-center">Appointments by Type</h3>
+              <Pie data={appointmentsByTypeData} options={{ responsive: true }} />
+            </div>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">

@@ -90,10 +90,18 @@ export default function AppointmentsReportPage() {
 
   // Helper to parse and format dates for DatePicker
   function parseDate(str: string) {
-    return str ? new Date(str) : null;
+    // Parse as local date (no timezone offset)
+    if (!str) return null;
+    const [year, month, day] = str.split('-').map(Number);
+    return new Date(year, month - 1, day);
   }
   function formatDate(date: Date | null) {
-    return date ? date.toISOString().split("T")[0] : "";
+    // Always output YYYY-MM-DD in local time
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   return (
